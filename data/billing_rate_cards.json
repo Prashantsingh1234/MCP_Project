@@ -1,0 +1,92 @@
+[
+  {
+    "charge_code": "WRD-CARD",
+    "description": "Cardiology ward \u2014 per diem",
+    "rate_inr": 4200,
+    "unit": "per_day"
+  },
+  {
+    "charge_code": "WRD-NEPH",
+    "description": "Nephrology ward \u2014 per diem",
+    "rate_inr": 3800,
+    "unit": "per_day"
+  },
+  {
+    "charge_code": "WRD-RHEU",
+    "description": "Rheumatology ward \u2014 per diem",
+    "rate_inr": 3600,
+    "unit": "per_day"
+  },
+  {
+    "charge_code": "WRD-ONCO",
+    "description": "Oncology ward \u2014 per diem",
+    "rate_inr": 5200,
+    "unit": "per_day"
+  },
+  {
+    "charge_code": "WRD-NEUR",
+    "description": "Neurology ward \u2014 per diem",
+    "rate_inr": 4000,
+    "unit": "per_day"
+  },
+  {
+    "charge_code": "INV-ECHO",
+    "description": "Echocardiogram",
+    "rate_inr": 3500,
+    "unit": "per_session"
+  },
+  {
+    "charge_code": "INV-MRI",
+    "description": "MRI brain/spine",
+    "rate_inr": 8500,
+    "unit": "per_session"
+  },
+  {
+    "charge_code": "INV-CT",
+    "description": "CT chest",
+    "rate_inr": 4200,
+    "unit": "per_session"
+  },
+  {
+    "charge_code": "INV-LAB",
+    "description": "Standard lab panel",
+    "rate_inr": 1200,
+    "unit": "per_day"
+  },
+  {
+    "charge_code": "INV-PYP",
+    "description": "Technetium PYP scan",
+    "rate_inr": 12000,
+    "unit": "per_session"
+  },
+  {
+    "charge_code": "PRO-IV",
+    "description": "IV therapy administration",
+    "rate_inr": 800,
+    "unit": "per_day"
+  },
+  {
+    "charge_code": "PRO-CONS",
+    "description": "Specialist consultation",
+    "rate_inr": 2500,
+    "unit": "per_session"
+  },
+  {
+    "charge_code": "PRO-BIOI",
+    "description": "Biologic drug administration",
+    "rate_inr": 4000,
+    "unit": "per_session"
+  },
+  {
+    "charge_code": "DRG-STD",
+    "description": "Standard formulary drug dispensing",
+    "rate_inr": 0,
+    "unit": "pass_through"
+  },
+  {
+    "charge_code": "DRG-SPEC",
+    "description": "Specialty drug dispensing fee",
+    "rate_inr": 500,
+    "unit": "per_item"
+  }
+]

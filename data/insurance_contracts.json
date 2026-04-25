@@ -1,0 +1,42 @@
+[
+  {
+    "insurer_id": "INS-BLUE",
+    "insurer_name": "BlueStar Health",
+    "plan_type": "corporate_group",
+    "copay_inr": 500,
+    "deductible_inr": 5000,
+    "max_covered_per_admission_inr": 300000,
+    "covered_icd10_prefixes": [
+      "I",
+      "E",
+      "N",
+      "M",
+      "G",
+      "C"
+    ],
+    "specialty_drug_covered": true,
+    "specialty_drug_copay_pct": 0.1,
+    "requires_pa_for_specialty": true,
+    "excluded_charges": [
+      "SCOPE_VIOLATION"
+    ]
+  },
+  {
+    "insurer_id": "INS-STAR",
+    "insurer_name": "Star Health",
+    "plan_type": "individual",
+    "copay_inr": 1000,
+    "deductible_inr": 10000,
+    "max_covered_per_admission_inr": 150000,
+    "covered_icd10_prefixes": [
+      "I",
+      "E",
+      "N",
+      "M",
+      "G"
+    ],
+    "specialty_drug_covered": false,
+    "requires_pa_for_specialty": true,
+    "excluded_charges": []
+  }
+]

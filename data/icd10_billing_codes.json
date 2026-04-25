@@ -1,0 +1,41 @@
+{
+  "I50.20": {
+    "description": "Systolic heart failure",
+    "drg_code": "DRG-291",
+    "base_reimbursement_inr": 48000
+  },
+  "E11.65": {
+    "description": "T2DM with CKD",
+    "drg_code": "DRG-637",
+    "base_reimbursement_inr": 22000
+  },
+  "N17.9": {
+    "description": "Acute kidney injury",
+    "drg_code": "DRG-682",
+    "base_reimbursement_inr": 35000
+  },
+  "M05.79": {
+    "description": "Rheumatoid arthritis",
+    "drg_code": "DRG-545",
+    "base_reimbursement_inr": 28000
+  },
+  "E85.4": {
+    "description": "ATTR amyloidosis",
+    "drg_code": "DRG-642",
+    "base_reimbursement_inr": 42000
+  },
+  "I50.20_combined": {
+    "description": "HFrEF + ATTR",
+    "base_reimbursement_inr": 62000
+  },
+  "C34.10": {
+    "description": "NSCLC",
+    "drg_code": "DRG-180",
+    "base_reimbursement_inr": 38000
+  },
+  "G35": {
+    "description": "Multiple sclerosis",
+    "drg_code": "DRG-058",
+    "base_reimbursement_inr": 24000
+  }
+}

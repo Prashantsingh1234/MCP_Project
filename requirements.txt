@@ -1,0 +1,30 @@
+# MCPDischarge Requirements
+
+# MCP Protocol
+fastmcp>=0.1.0          # FastMCP server framework
+mcp>=1.0.0              # Official MCP Python SDK
+
+# Data & Evaluation
+numpy>=1.26.0
+pandas>=2.1.0
+matplotlib>=3.8.0
+jsonschema>=4.20.0
+
+# LLM Integration
+langchain>=0.2.0
+langchain-openai>=0.1.0
+
+# Azure
+azure-ai-projects>=1.0.0b1
+azure-identity>=1.17.0
+azure-monitor-opentelemetry>=1.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+rich>=13.7.0
+
+# Chat gateway (frontend integration)
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+openai>=1.30.0
+python-dotenv>=1.0.0

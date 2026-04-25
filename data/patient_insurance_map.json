@@ -1,0 +1,32 @@
+{
+  "PAT-001": {
+    "insurer_id": "INS-BLUE",
+    "policy_number": "BS-9871234",
+    "pa_required": true
+  },
+  "PAT-002": {
+    "insurer_id": "INS-BLUE",
+    "policy_number": "BS-2234567",
+    "pa_required": false
+  },
+  "PAT-003": {
+    "insurer_id": "INS-STAR",
+    "policy_number": "SH-3312900",
+    "pa_required": true
+  },
+  "PAT-004": {
+    "insurer_id": "INS-BLUE",
+    "policy_number": "BS-9876001",
+    "pa_required": true
+  },
+  "PAT-005": {
+    "insurer_id": "INS-BLUE",
+    "policy_number": "BS-5543210",
+    "pa_required": true
+  },
+  "PAT-006": {
+    "insurer_id": "INS-STAR",
+    "policy_number": "SH-8877001",
+    "pa_required": false
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "discharge_coordinator": {
+    "ehr": [
+      "read_discharge_note",
+      "read_medications",
+      "read_diagnosis_codes",
+      "read_patient_demographics",
+      "read_admission_dates"
+    ],
+    "pharmacy": [
+      "check_stock",
+      "get_alternatives",
+      "get_drug_price",
+      "submit_dispense_request"
+    ],
+    "billing": [
+      "read_charge_codes",
+      "generate_invoice",
+      "read_insurance_contract"
+    ]
+  },
+  "billing_agent": {
+    "ehr": [
+      "read_diagnosis_codes",
+      "read_admission_dates",
+      "read_ward"
+    ],
+    "pharmacy": [
+      "read_drug_price"
+    ],
+    "billing": [
+      "read_charge_codes",
+      "generate_invoice",
+      "read_insurance_contract",
+      "submit_claim"
+    ]
+  },
+  "pharmacy_agent": {
+    "ehr": [
+      "read_medications",
+      "read_diagnosis_codes"
+    ],
+    "pharmacy": [
+      "check_stock",
+      "get_alternatives",
+      "get_drug_price",
+      "submit_dispense_request",
+      "update_inventory"
+    ],
+    "billing": []
+  },
+  "clinical_agent": {
+    "ehr": [
+      "read_discharge_note",
+      "read_medications",
+      "read_diagnosis_codes",
+      "read_patient_demographics",
+      "read_admission_dates",
+      "update_discharge_note"
+    ],
+    "pharmacy": [
+      "check_stock"
+    ],
+    "billing": []
+  }
+}

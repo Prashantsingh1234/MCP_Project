@@ -1,0 +1,542 @@
+[
+  {
+    "drug_id": "PH-001",
+    "generic_name": "Dapagliflozin",
+    "brand_names": [
+      "Farxiga",
+      "Forxiga"
+    ],
+    "strengths": [
+      "10mg",
+      "5mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 240,
+    "reorder_threshold": 50,
+    "price_per_unit_inr": 48.5,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "10mg OD",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "dapa",
+      "SGLT2 inhibitor",
+      "farxiga"
+    ],
+    "challenge_tags": [
+      "NAME_MISMATCH"
+    ],
+    "note": "EHR uses brand 'Farxiga'; pharmacy stocks under generic 'Dapagliflozin'"
+  },
+  {
+    "drug_id": "PH-002",
+    "generic_name": "Bisoprolol fumarate",
+    "brand_names": [
+      "Concor",
+      "Zebeta"
+    ],
+    "strengths": [
+      "2.5mg",
+      "5mg",
+      "10mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 480,
+    "reorder_threshold": 100,
+    "price_per_unit_inr": 4.2,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "5mg OD",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "bisoprolol",
+      "beta blocker",
+      "concor"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-003",
+    "generic_name": "Ramipril",
+    "brand_names": [
+      "Altace",
+      "Cardace"
+    ],
+    "strengths": [
+      "2.5mg",
+      "5mg",
+      "10mg"
+    ],
+    "formulations": [
+      "capsule",
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 360,
+    "reorder_threshold": 80,
+    "price_per_unit_inr": 3.8,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "5mg OD",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "ramipril",
+      "ACE inhibitor",
+      "altace"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-004",
+    "generic_name": "Furosemide",
+    "brand_names": [
+      "Lasix",
+      "Frumil"
+    ],
+    "strengths": [
+      "20mg",
+      "40mg",
+      "80mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": false,
+    "stock_units": 0,
+    "reorder_threshold": 100,
+    "restock_eta_days": 3,
+    "price_per_unit_inr": 1.2,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "40mg OD",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "alternative_drug_id": "PH-020",
+    "alternative_name": "Torsemide 10mg (loop diuretic alternative)",
+    "semantic_aliases": [
+      "furosemide",
+      "frusemide",
+      "loop diuretic",
+      "lasix"
+    ],
+    "challenge_tags": [
+      "OUT_OF_STOCK"
+    ],
+    "note": "OUT OF STOCK \u2014 PAT-001 Furosemide 40mg OD cannot be dispensed. Restock in 3 days. Alternative: Torsemide."
+  },
+  {
+    "drug_id": "PH-005",
+    "generic_name": "Semaglutide",
+    "brand_names": [
+      "Ozempic",
+      "Rybelsus"
+    ],
+    "strengths": [
+      "0.5mg/dose",
+      "1mg/dose"
+    ],
+    "formulations": [
+      "prefilled_pen_SC",
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 48,
+    "reorder_threshold": 20,
+    "price_per_unit_inr": 3200.0,
+    "requires_refrigeration": true,
+    "formulary_standard_dose": "0.25mg SC weekly (starter), escalate to 0.5mg",
+    "controlled_substance": false,
+    "specialty_drug": true,
+    "semantic_aliases": [
+      "semaglutide",
+      "GLP-1 agonist",
+      "ozempic"
+    ],
+    "challenge_tags": [
+      "DATA_DRIFT"
+    ],
+    "note": "DOSE DRIFT: EHR prescribes 0.5mg weekly (maintenance dose). Formulary starter is 0.25mg weekly \u00d7 4 weeks. Conflict alert required."
+  },
+  {
+    "drug_id": "PH-006",
+    "generic_name": "Amlodipine",
+    "brand_names": [
+      "Norvasc",
+      "Amlong"
+    ],
+    "strengths": [
+      "5mg",
+      "10mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 600,
+    "reorder_threshold": 100,
+    "price_per_unit_inr": 2.5,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "5mg OD",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "amlodipine",
+      "CCB",
+      "calcium channel blocker",
+      "norvasc"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-007",
+    "generic_name": "Atorvastatin",
+    "brand_names": [
+      "Lipitor",
+      "Atorva"
+    ],
+    "strengths": [
+      "10mg",
+      "20mg",
+      "40mg",
+      "80mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 720,
+    "reorder_threshold": 100,
+    "price_per_unit_inr": 6.4,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "40mg nocte",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "atorvastatin",
+      "statin",
+      "lipitor"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-008",
+    "generic_name": "Adalimumab",
+    "brand_names": [
+      "Humira",
+      "Exemptia",
+      "Cimzia"
+    ],
+    "strengths": [
+      "40mg/0.8mL"
+    ],
+    "formulations": [
+      "prefilled_syringe_SC"
+    ],
+    "in_stock": false,
+    "stock_units": 0,
+    "reorder_threshold": 10,
+    "restock_eta_days": 7,
+    "price_per_unit_inr": 42000.0,
+    "requires_refrigeration": true,
+    "formulary_standard_dose": "40mg SC q2w",
+    "controlled_substance": false,
+    "specialty_drug": true,
+    "alternative_drug_id": "PH-021",
+    "alternative_name": "Adalimumab biosimilar (Exemptia 40mg) \u2014 30% lower cost",
+    "semantic_aliases": [
+      "adalimumab",
+      "TNF inhibitor",
+      "anti-TNF",
+      "humira",
+      "biologic"
+    ],
+    "challenge_tags": [
+      "OUT_OF_STOCK",
+      "NAME_MISMATCH"
+    ],
+    "note": "Branded Humira OUT OF STOCK. Biosimilar Exemptia available. EHR note says 'Humira' \u2014 semantic match to adalimumab required."
+  },
+  {
+    "drug_id": "PH-009",
+    "generic_name": "Methotrexate",
+    "brand_names": [
+      "Methofar",
+      "Methocel"
+    ],
+    "strengths": [
+      "5mg",
+      "10mg",
+      "15mg",
+      "25mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 280,
+    "reorder_threshold": 60,
+    "price_per_unit_inr": 8.6,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "15mg weekly",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "methotrexate",
+      "MTX",
+      "DMARD"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-010",
+    "generic_name": "Folic acid",
+    "brand_names": [
+      "Folvite"
+    ],
+    "strengths": [
+      "1mg",
+      "5mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 1200,
+    "reorder_threshold": 200,
+    "price_per_unit_inr": 0.8,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "5mg weekly (day after MTX)",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "folic acid",
+      "folate",
+      "vitamin B9"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-011",
+    "generic_name": "Tafamidis",
+    "brand_names": [
+      "Vyndamax",
+      "Vyndaqel"
+    ],
+    "strengths": [
+      "61mg",
+      "20mg"
+    ],
+    "formulations": [
+      "capsule"
+    ],
+    "in_stock": false,
+    "stock_units": 0,
+    "reorder_threshold": 5,
+    "restock_eta_days": 14,
+    "price_per_unit_inr": 21000.0,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "61mg OD",
+    "controlled_substance": false,
+    "specialty_drug": true,
+    "alternative_drug_id": null,
+    "alternative_name": "No alternative \u2014 disease-specific TTR stabiliser",
+    "semantic_aliases": [
+      "tafamidis",
+      "TTR stabiliser",
+      "amyloidosis drug",
+      "vyndamax"
+    ],
+    "challenge_tags": [
+      "OUT_OF_STOCK",
+      "NAME_MISMATCH"
+    ],
+    "note": "CRITICAL STOCK-OUT: rare disease drug. EHR uses 'Tafamidis meglumine' \u2014 maps to Vyndamax 61mg. No alternative. Must source from specialty pharmacy."
+  },
+  {
+    "drug_id": "PH-012",
+    "generic_name": "Spironolactone",
+    "brand_names": [
+      "Aldactone"
+    ],
+    "strengths": [
+      "25mg",
+      "50mg",
+      "100mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 400,
+    "reorder_threshold": 80,
+    "price_per_unit_inr": 2.1,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "25mg OD",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "spironolactone",
+      "MRA",
+      "aldosterone antagonist"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-013",
+    "generic_name": "Osimertinib",
+    "brand_names": [
+      "Tagrisso"
+    ],
+    "strengths": [
+      "80mg",
+      "40mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": false,
+    "stock_units": 0,
+    "reorder_threshold": 5,
+    "restock_eta_days": 5,
+    "price_per_unit_inr": 18500.0,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "80mg OD",
+    "controlled_substance": false,
+    "specialty_drug": true,
+    "alternative_drug_id": null,
+    "alternative_name": "No generic available \u2014 PA authorisation must confirm before dispensing",
+    "semantic_aliases": [
+      "osimertinib",
+      "EGFR TKI",
+      "tagrisso",
+      "lung cancer drug"
+    ],
+    "challenge_tags": [
+      "OUT_OF_STOCK",
+      "CROSS_DEPT"
+    ],
+    "note": "Specialty high-cost drug. Insurance PA already approved. Central pharmacy order required \u2014 ETA 5 days."
+  },
+  {
+    "drug_id": "PH-014",
+    "generic_name": "Baclofen",
+    "brand_names": [
+      "Lioresal"
+    ],
+    "strengths": [
+      "5mg",
+      "10mg",
+      "25mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 360,
+    "reorder_threshold": 80,
+    "price_per_unit_inr": 3.5,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "10mg TDS",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "baclofen",
+      "muscle relaxant",
+      "GABA-B agonist"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-015",
+    "generic_name": "Modafinil",
+    "brand_names": [
+      "Provigil",
+      "Modalert"
+    ],
+    "strengths": [
+      "100mg",
+      "200mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 120,
+    "reorder_threshold": 30,
+    "price_per_unit_inr": 28.0,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "100mg OD",
+    "controlled_substance": true,
+    "schedule": "H",
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "modafinil",
+      "wakefulness agent",
+      "provigil"
+    ],
+    "challenge_tags": [
+      "SCOPE_VIOLATION"
+    ],
+    "note": "Schedule H \u2014 requires special handling. Billing agent must NOT see prescription details for controlled substances."
+  },
+  {
+    "drug_id": "PH-020",
+    "generic_name": "Torsemide",
+    "brand_names": [
+      "Demadex"
+    ],
+    "strengths": [
+      "10mg",
+      "20mg"
+    ],
+    "formulations": [
+      "tablet"
+    ],
+    "in_stock": true,
+    "stock_units": 200,
+    "reorder_threshold": 50,
+    "price_per_unit_inr": 2.8,
+    "requires_refrigeration": false,
+    "formulary_standard_dose": "10mg OD (\u2261 furosemide 40mg)",
+    "controlled_substance": false,
+    "specialty_drug": false,
+    "semantic_aliases": [
+      "torsemide",
+      "loop diuretic",
+      "torasemide"
+    ],
+    "challenge_tags": []
+  },
+  {
+    "drug_id": "PH-021",
+    "generic_name": "Adalimumab biosimilar",
+    "brand_names": [
+      "Exemptia"
+    ],
+    "strengths": [
+      "40mg/0.8mL"
+    ],
+    "formulations": [
+      "prefilled_syringe_SC"
+    ],
+    "in_stock": true,
+    "stock_units": 18,
+    "reorder_threshold": 10,
+    "price_per_unit_inr": 29400.0,
+    "requires_refrigeration": true,
+    "formulary_standard_dose": "40mg SC q2w",
+    "controlled_substance": false,
+    "specialty_drug": true,
+    "semantic_aliases": [
+      "adalimumab biosimilar",
+      "exemptia",
+      "biosimilar anti-TNF"
+    ],
+    "challenge_tags": []
+  }
+]

@@ -1,0 +1,338 @@
+[
+  {
+    "patient_id": "PAT-001",
+    "mrn": "MH-44218",
+    "name": "Arjun Mehta",
+    "dob": "1958-06-15",
+    "blood_group": "B+",
+    "ward": "Cardiology",
+    "admission_date": "2025-01-14",
+    "discharge_date": "2025-01-19",
+    "los_days": 5,
+    "attending_physician": "Dr. Ananya Sharma",
+    "diagnosis_icd10": [
+      "I50.20",
+      "E11.65"
+    ],
+    "diagnosis_labels": [
+      "HFrEF",
+      "T2DM with CKD"
+    ],
+    "discharge_note": "Patient Arjun Mehta, 67M, admitted with acute HFrEF decompensation. LVEF confirmed 32% on echo. HbA1c 8.1%. Creatinine stable at 1.8. Treated with IV furosemide, bisoprolol uptitrated, dapagliflozin initiated. Discharged on: dapagliflozin 10mg OD, bisoprolol 5mg OD, ramipril 5mg OD, furosemide 40mg OD. Weight reduced 3.2kg from admission. Follow-up heart failure clinic 2 weeks. Fluid restriction 1.5L/day.",
+    "discharge_medications": [
+      {
+        "drug_name": "Dapagliflozin",
+        "dose": "10mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Farxiga",
+        "challenge_tags": [
+          "NAME_MISMATCH"
+        ]
+      },
+      {
+        "drug_name": "Bisoprolol fumarate",
+        "dose": "5mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Concor",
+        "challenge_tags": []
+      },
+      {
+        "drug_name": "Ramipril",
+        "dose": "5mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Altace",
+        "challenge_tags": []
+      },
+      {
+        "drug_name": "Furosemide",
+        "dose": "40mg",
+        "frequency": "OD",
+        "days_supply": 14,
+        "route": "oral",
+        "brand": "Lasix",
+        "challenge_tags": [
+          "OUT_OF_STOCK"
+        ]
+      }
+    ],
+    "special_instructions": "Low sodium diet. Fluid restriction 1.5L/day. Daily weight monitoring.",
+    "challenge_tags": [
+      "NAME_MISMATCH",
+      "OUT_OF_STOCK",
+      "PHI_BOUNDARY"
+    ]
+  },
+  {
+    "patient_id": "PAT-002",
+    "mrn": "KA-77329",
+    "name": "Fatima Sheikh",
+    "dob": "1956-09-22",
+    "blood_group": "O+",
+    "ward": "Nephrology",
+    "admission_date": "2025-01-18",
+    "discharge_date": "2025-01-25",
+    "los_days": 7,
+    "attending_physician": "Dr. Suresh Pillai",
+    "diagnosis_icd10": [
+      "N17.9",
+      "E11.65"
+    ],
+    "diagnosis_labels": [
+      "Acute Kidney Injury",
+      "T2DM with CKD"
+    ],
+    "discharge_note": "68F admitted with AKI stage 2 superimposed on CKD3b. Creatinine peak 3.1 on admission, improved to 1.9 at discharge. IV fluids, nephrotoxic drugs held. Metformin held \u2014 eGFR 32. Discharged on: semaglutide 0.5mg weekly SC, amlodipine 5mg OD, atorvastatin 40mg nocte. Renal diet. Monthly creatinine monitoring.",
+    "discharge_medications": [
+      {
+        "drug_name": "Semaglutide",
+        "dose": "0.5mg",
+        "frequency": "weekly",
+        "days_supply": 28,
+        "route": "SC",
+        "brand": "Ozempic",
+        "challenge_tags": [
+          "DATA_DRIFT"
+        ]
+      },
+      {
+        "drug_name": "Amlodipine",
+        "dose": "5mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Norvasc",
+        "challenge_tags": []
+      },
+      {
+        "drug_name": "Atorvastatin",
+        "dose": "40mg",
+        "frequency": "nocte",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Lipitor",
+        "challenge_tags": []
+      }
+    ],
+    "special_instructions": "Renal diet \u2014 potassium restriction. No NSAIDs. eGFR monitoring monthly.",
+    "challenge_tags": [
+      "DATA_DRIFT",
+      "PHI_BOUNDARY"
+    ]
+  },
+  {
+    "patient_id": "PAT-003",
+    "mrn": "TN-22190",
+    "name": "Meera Krishnan",
+    "dob": "1977-03-08",
+    "blood_group": "A+",
+    "ward": "Rheumatology",
+    "admission_date": "2025-01-22",
+    "discharge_date": "2025-01-27",
+    "los_days": 5,
+    "attending_physician": "Dr. Arun Nair",
+    "diagnosis_icd10": [
+      "M05.79"
+    ],
+    "diagnosis_labels": [
+      "Rheumatoid Arthritis"
+    ],
+    "discharge_note": "48F with high-activity seropositive RA (DAS28 5.6). Admitted for initiation and monitoring of adalimumab. First dose administered in-hospital. Tolerated well. Discharged on: adalimumab 40mg SC q2w (home delivery arranged), methotrexate 15mg weekly oral, folic acid 5mg weekly.",
+    "discharge_medications": [
+      {
+        "drug_name": "Adalimumab",
+        "dose": "40mg",
+        "frequency": "q2w",
+        "days_supply": 28,
+        "route": "SC",
+        "brand": "Humira",
+        "challenge_tags": [
+          "OUT_OF_STOCK",
+          "NAME_MISMATCH"
+        ]
+      },
+      {
+        "drug_name": "Methotrexate",
+        "dose": "15mg",
+        "frequency": "weekly",
+        "days_supply": 28,
+        "route": "oral",
+        "brand": null,
+        "challenge_tags": []
+      },
+      {
+        "drug_name": "Folic acid",
+        "dose": "5mg",
+        "frequency": "weekly",
+        "days_supply": 28,
+        "route": "oral",
+        "brand": null,
+        "challenge_tags": []
+      }
+    ],
+    "special_instructions": "TB screen confirmed negative. Monitor LFTs, CBC monthly. No live vaccines.",
+    "challenge_tags": [
+      "OUT_OF_STOCK",
+      "NAME_MISMATCH",
+      "PHI_BOUNDARY"
+    ]
+  },
+  {
+    "patient_id": "PAT-004",
+    "mrn": "MH-55432",
+    "name": "Vinod Rao",
+    "dob": "1952-11-04",
+    "blood_group": "B+",
+    "ward": "Cardiology",
+    "admission_date": "2025-01-20",
+    "discharge_date": "2025-01-24",
+    "los_days": 4,
+    "attending_physician": "Dr. Priya Menon",
+    "diagnosis_icd10": [
+      "E85.4",
+      "I50.20"
+    ],
+    "diagnosis_labels": [
+      "ATTR Amyloidosis",
+      "HFrEF"
+    ],
+    "discharge_note": "72M with wild-type ATTR cardiac amyloidosis and HFrEF (LVEF 38%). Technetium PYP grade 3. Tafamidis initiated. Discharged on: tafamidis 61mg OD, bisoprolol 2.5mg OD, spironolactone 25mg OD, furosemide 20mg OD.",
+    "discharge_medications": [
+      {
+        "drug_name": "Tafamidis meglumine",
+        "dose": "61mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Vyndamax",
+        "challenge_tags": [
+          "NAME_MISMATCH",
+          "OUT_OF_STOCK"
+        ]
+      },
+      {
+        "drug_name": "Bisoprolol fumarate",
+        "dose": "2.5mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Concor",
+        "challenge_tags": []
+      },
+      {
+        "drug_name": "Spironolactone",
+        "dose": "25mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Aldactone",
+        "challenge_tags": []
+      },
+      {
+        "drug_name": "Furosemide",
+        "dose": "20mg",
+        "frequency": "OD",
+        "days_supply": 14,
+        "route": "oral",
+        "brand": "Lasix",
+        "challenge_tags": []
+      }
+    ],
+    "special_instructions": "Rare disease case. Tafamidis is specialty pharmacy \u2014 confirm supply before discharge.",
+    "challenge_tags": [
+      "NAME_MISMATCH",
+      "OUT_OF_STOCK",
+      "PHI_BOUNDARY"
+    ]
+  },
+  {
+    "patient_id": "PAT-005",
+    "mrn": "GJ-88123",
+    "name": "Sanjay Patel",
+    "dob": "1959-03-12",
+    "blood_group": "O+",
+    "ward": "Oncology",
+    "admission_date": "2025-01-15",
+    "discharge_date": "2025-01-19",
+    "los_days": 4,
+    "attending_physician": "Dr. Ramesh Gupta",
+    "diagnosis_icd10": [
+      "C34.10"
+    ],
+    "diagnosis_labels": [
+      "NSCLC"
+    ],
+    "discharge_note": "65M NSCLC (EGFR del19). Admitted for osimertinib initiation and monitoring. Tolerating well. No significant adverse events. Discharged on: osimertinib 80mg OD. Onco follow-up 4 weeks. CT chest scheduled 3 months.",
+    "discharge_medications": [
+      {
+        "drug_name": "Osimertinib",
+        "dose": "80mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Tagrisso",
+        "challenge_tags": [
+          "OUT_OF_STOCK",
+          "CROSS_DEPT"
+        ]
+      }
+    ],
+    "special_instructions": "High-cost specialty drug. Insurance PA confirmed. Pharmacy direct delivery.",
+    "challenge_tags": [
+      "OUT_OF_STOCK",
+      "CROSS_DEPT",
+      "PHI_BOUNDARY"
+    ]
+  },
+  {
+    "patient_id": "PAT-006",
+    "mrn": "MH-33124",
+    "name": "Sunita Rao",
+    "dob": "1987-07-19",
+    "blood_group": "A-",
+    "ward": "Neurology",
+    "admission_date": "2025-01-21",
+    "discharge_date": "2025-01-23",
+    "los_days": 2,
+    "attending_physician": "Dr. Vikram Desai",
+    "diagnosis_icd10": [
+      "G35"
+    ],
+    "diagnosis_labels": [
+      "Multiple Sclerosis"
+    ],
+    "discharge_note": "38F RRMS. Admitted for MS relapse \u2014 IV methylprednisolone 1g \u00d7 3 days completed. Ocrelizumab scheduled next cycle (outpatient infusion). Discharged on: baclofen 10mg TDS, modafinil 100mg OD.",
+    "discharge_medications": [
+      {
+        "drug_name": "Baclofen",
+        "dose": "10mg",
+        "frequency": "TDS",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": null,
+        "challenge_tags": []
+      },
+      {
+        "drug_name": "Modafinil",
+        "dose": "100mg",
+        "frequency": "OD",
+        "days_supply": 30,
+        "route": "oral",
+        "brand": "Provigil",
+        "challenge_tags": [
+          "SCOPE_VIOLATION"
+        ]
+      }
+    ],
+    "special_instructions": "Modafinil \u2014 schedule H drug. Patient counselled on side effects. Next ocrelizumab in 6 months.",
+    "challenge_tags": [
+      "SCOPE_VIOLATION",
+      "PHI_BOUNDARY"
+    ]
+  }
+]
