@@ -92,6 +92,11 @@ class LLMToolCallingAgent:
         except Exception:
             blockers_count = 0
 
+        mcp_total = int(getattr(state, "mcp_call_count_total", 0) or 0)
+        mcp_last = int(getattr(state, "mcp_call_count_last", 0) or 0)
+        mcp_by_server = getattr(state, "mcp_call_count_by_server_total", {}) or {}
+        mcp_by_server_str = ", ".join(f"{k}={v}" for k, v in sorted(mcp_by_server.items())) if mcp_by_server else "none"
+
         memory_lines = [
             f"- role (system-assigned): {role}",
             f"- last_patient_id: {state.last_patient_id or ''}",
@@ -103,6 +108,9 @@ class LLMToolCallingAgent:
             f"- has_billing_safe_summary: {bool(state.billing_safe_summary)}",
             f"- last_discharge_patient_id: {discharge_pid or ''}",
             f"- last_discharge_blockers_count: {blockers_count}",
+            f"- mcp_call_count_total: {mcp_total}",
+            f"- mcp_call_count_last_message: {mcp_last}",
+            f"- mcp_call_count_by_server: {mcp_by_server_str}",
         ]
 
         return (
@@ -130,7 +138,9 @@ class LLMToolCallingAgent:
             "- 'check availability for these medicines' (with cache) → batch check_stock per drug\n"
             "- 'system health' / 'server status' → call get_system_health()\n"
             "- 'workflow trace for PAT-XXX' → call trace_workflow(patient_id)\n"
-            "- 'how many tool calls' → answer from session memory (no tool needed)\n"
+            "- 'how many mcp calls / tool calls' (session-wide) → read mcp_call_count_total and mcp_call_count_by_server from Memory snapshot below; call respond() directly, NO tool call needed\n"
+            "- 'how many mcp calls for PAT-XXX' (patient-specific) → call get_mcp_call_count(patient_id='PAT-XXX') from the Telemetry server for accurate per-patient data\n"
+            "- 'rbac violations' / 'telemetry summary' → call get_alerts() and/or get_system_health() from the Telemetry server\n"
             "- Patient ordinals: 'third patient' = PAT-003, '4th patient' = PAT-004\n\n"
             "DISCHARGE BLOCKERS:\n"
             "- If asked 'blockers for discharge' and memory has last_discharge_blockers_count > 0, summarize blockers from memory (alerts/conflicts/substitutions) and propose next steps.\n"
@@ -463,42 +473,6 @@ class LLMToolCallingAgent:
         user_text: str,
         chat_history: Optional[list[dict[str, Any]]] = None,
     ) -> AgentResult:
-        lower_q = (user_text or "").lower()
-
-        # Fast-path: session-level tool-call count (no tool call needed)
-        if any(k in lower_q for k in ["how many mcp calls", "mcp calls were", "mcp call count",
-                                       "mcp tool request", "mcp tool requests", "how many tool calls", "tool call count"]):
-            total = int(getattr(state, "mcp_call_count_total", 0) or 0)
-            last = int(getattr(state, "mcp_call_count_last", 0) or 0)
-            by_server = getattr(state, "mcp_call_count_by_server_total", {}) or {}
-            by_server_last = getattr(state, "mcp_call_count_by_server_last", {}) or {}
-            parts = [
-                "Tool calls in this chat:",
-                f"- Total: {total}",
-                f"- Last message: {last}",
-            ]
-            if by_server:
-                parts.append("- Total by server: " + ", ".join(f"{k}={int(v)}" for k, v in sorted(by_server.items())))
-            if by_server_last:
-                parts.append("- Last by server: " + ", ".join(f"{k}={int(v)}" for k, v in sorted(by_server_last.items())))
-            return AgentResult(
-                answer="\n".join(parts),
-                data={"mcp_call_count_total": total, "mcp_call_count_last": last,
-                      "by_server_total": by_server, "by_server_last": by_server_last},
-            )
-
-        # Fast-path: basic telemetry summary
-        if any(k in lower_q for k in ["rbac violations", "telemetry summary", "system telemetry"]):
-            from src.utils.telemetry import get_telemetry
-            telem = get_telemetry()
-            summary = telem.get_summary()
-            answer = (
-                f"System Telemetry Summary:\n\nTotal calls: {summary.get('total_calls', 0)}\n"
-                f"Alerts: {summary.get('total_alerts', 0)}\n"
-                f"RBAC violations: {summary.get('total_rbac_violations', 0)}"
-            )
-            return AgentResult(answer=answer, data=summary)
-
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self._system_prompt(state, role)},
         ]
@@ -512,6 +486,10 @@ class LLMToolCallingAgent:
                 })
         messages.append({"role": "user", "content": user_text})
         tools = self._tool_specs()
+
+        # Tracks whether an invoice was generated during THIS run so we can
+        # include it in the respond() data for the gateway's PDF link injection.
+        _invoice_generated: list[bool] = [False]
 
         async def exec_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
             args = args or {}
@@ -527,6 +505,7 @@ class LLMToolCallingAgent:
                     state.billing_safe_summary = dict(safe.get("billing_safe_summary") or {})
                 if isinstance(safe.get("invoice"), dict):
                     state.last_invoice = dict(safe.get("invoice") or {})
+                    _invoice_generated[0] = True
                 try:
                     state.last_discharge_context = {
                         "patient_id": patient_id,
@@ -815,6 +794,7 @@ class LLMToolCallingAgent:
                 )
                 if isinstance(result, dict):
                     state.last_invoice = dict(result)
+                    _invoice_generated[0] = True
                 return _scrub_for_llm(result)
 
             # ── Security ──────────────────────────────────────────────────────
@@ -933,6 +913,11 @@ class LLMToolCallingAgent:
                                                    "attending_physician", "attending physician"]):
                         answer = "Request denied.\n\nSensitive patient information (PHI) cannot be included."
                         data = None
+                    else:
+                        # If an invoice was generated during this run, inject it into the
+                        # response data so the gateway can attach PDF/HTML download links.
+                        if _invoice_generated[0] and state.last_invoice and not (data or {}).get("invoice"):
+                            data = {**(data or {}), "invoice": dict(state.last_invoice)}
                     return AgentResult(answer=answer, data=data)
 
                 try:

@@ -64,12 +64,16 @@ export default function App() {
 const refreshSessions = useCallback(async () => {
     try {
       const s = await getSessions();
-      setSessions(s);
-      try {
-        localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(s));
-      } catch {
-        // ignore storage failures (private mode / quota)
+      if (s.length > 0) {
+        setSessions(s);
+        try {
+          localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(s));
+        } catch {
+          // ignore storage failures (private mode / quota)
+        }
       }
+      // If backend returns empty (e.g. after restart), keep existing cached
+      // sessions visible — don't wipe the sidebar.
     } catch {
       // ignore — backend may not be up yet
     }
@@ -159,6 +163,19 @@ const refreshSessions = useCallback(async () => {
     setMessages((m) => [...m.filter((x) => x.id !== "welcome"), userMsg]);
     setInput("");
     setBusy(true);
+
+    // Optimistically add/update this session in the sidebar immediately so
+    // the user sees it even before the backend responds.
+    const now = new Date().toISOString();
+    const optimisticSession: SessionMeta = { id: conversationId, title: t.slice(0, 60), created_at: now, last_used: now, message_count: 1 };
+    setSessions((prev) => {
+      const exists = prev.some((s) => s.id === conversationId);
+      const next = exists
+        ? prev.map((s) => (s.id === conversationId ? { ...s, title: optimisticSession.title, last_used: optimisticSession.last_used } : s))
+        : [optimisticSession, ...prev].slice(0, 50);
+      try { localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
 
     try {
       const res = await chat({ message: t, conversation_id: conversationId });
@@ -294,7 +311,6 @@ const refreshSessions = useCallback(async () => {
               summary={(logs?.summary || null) as any}
               chatTraces={(logs?.chat || []) as any}
               calls={(logs?.calls || []) as any}
-              rbacViolations={(logs?.rbac_violations || []) as any}
               alerts={(logs?.alerts || []) as any}
             />
           ) : null}

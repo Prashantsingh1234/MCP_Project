@@ -805,22 +805,6 @@ class LLMChatController:
             )
 
         lower_q = (user_text or "").lower()
-        if any(k in lower_q for k in ["how many mcp calls", "mcp call count", "mcp tool request", "mcp tool requests"]):
-            total = int(getattr(state, "mcp_call_count_total", 0) or 0)
-            last = int(getattr(state, "mcp_call_count_last", 0) or 0)
-            by_server = getattr(state, "mcp_call_count_by_server_total", {}) or {}
-            by_server_last = getattr(state, "mcp_call_count_by_server_last", {}) or {}
-            parts = [
-                "Tool calls in this chat:",
-                f"- Total: {total}",
-                f"- Last message: {last}",
-            ]
-            if by_server:
-                parts.append("- Total by server: " + ", ".join(f"{k}={int(v)}" for k, v in sorted(by_server.items())))
-            if by_server_last:
-                parts.append("- Last by server: " + ", ".join(f"{k}={int(v)}" for k, v in sorted(by_server_last.items())))
-            return ControllerResponse(success=True, answer="\n".join(parts), data={"mcp_call_count_total": total, "mcp_call_count_last": last})
-
         if not llm_configured():
             return ControllerResponse(
                 success=False,
@@ -904,9 +888,9 @@ class LLMChatController:
                 # Always include patient_id when known to support UI invoice links, etc.
                 if state.last_patient_id:
                     data = {**(data or {}), "patient_id": state.last_patient_id}
-                # Include invoice from state so the gateway can add PDF/HTML download links.
-                if state.last_invoice and not (data or {}).get("invoice"):
-                    data = {**(data or {}), "invoice": state.last_invoice}
+                # Only include invoice when the current response actually generated one.
+                # Do NOT inject state.last_invoice here — that would attach PDF links to every
+                # follow-up message after the first invoice, which is confusing.
                 final_resp = ControllerResponse(success=True, answer=result.answer, data=data)
                 _record_history(final_resp.answer)
                 return final_resp

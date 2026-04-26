@@ -12,14 +12,6 @@ type CallRow = {
   error?: string | null;
 };
 
-type RbacRow = {
-  timestamp: string;
-  role: string;
-  server: string;
-  tool: string;
-  patient_id?: string | null;
-};
-
 type AlertRow = {
   timestamp: string;
   level: string;
@@ -33,7 +25,6 @@ type Props = {
     successful_calls?: number;
     failed_calls?: number;
     total_alerts?: number;
-    total_rbac_violations?: number;
   } | null;
   chatTraces?: {
     timestamp: string;
@@ -43,17 +34,15 @@ type Props = {
     latency_ms: number;
     success: boolean;
     mcp_calls?: number;
-    rbac_violations?: number;
     needs_clarification?: boolean;
     clarification_type?: string | null;
     error?: string | null;
   }[];
   calls: CallRow[];
-  rbacViolations?: RbacRow[];
   alerts?: AlertRow[];
 };
 
-type Tab = "chat" | "calls" | "rbac" | "alerts";
+type Tab = "chat" | "calls" | "alerts";
 
 function Badge({ ok, label }: { ok: boolean; label: string }) {
   return <span className={`${styles.badge} ${ok ? styles.ok : styles.bad}`}>{label}</span>;
@@ -66,14 +55,13 @@ function levelClass(level: string) {
   return styles.ok;
 }
 
-export default function LogsPanel({ summary = null, chatTraces = [], calls, rbacViolations = [], alerts = [] }: Props) {
+export default function LogsPanel({ summary = null, chatTraces = [], calls, alerts = [] }: Props) {
   const [tab, setTab] = useState<Tab>("chat");
   const failedCalls = calls.filter((c) => !c.success);
   const failedChats = chatTraces.filter((c) => !c.success);
 
   const totalCalls = summary?.total_calls ?? calls.length;
   const totalFailed = summary?.failed_calls ?? failedCalls.length;
-  const totalRbac = summary?.total_rbac_violations ?? rbacViolations.length;
   const totalAlerts = summary?.total_alerts ?? alerts.length;
 
   return (
@@ -81,14 +69,13 @@ export default function LogsPanel({ summary = null, chatTraces = [], calls, rbac
       <div className={styles.header}>
         <div>
           <div className={styles.title}>Logs</div>
-          <div className={styles.subtitle}>Gateway telemetry - tool calls, RBAC violations, alerts</div>
+          <div className={styles.subtitle}>Gateway telemetry — chat requests, tool calls, alerts</div>
         </div>
         <div className={styles.counts}>
           <span className={styles.countBadge}>{totalCalls} calls</span>
           {totalFailed > 0 && (
             <span className={`${styles.countBadge} ${styles.countBad}`}>{totalFailed} failed</span>
           )}
-          {totalRbac > 0 && <span className={`${styles.countBadge} ${styles.countBad}`}>{totalRbac} RBAC</span>}
           {totalAlerts > 0 && (
             <span className={`${styles.countBadge} ${styles.countWarn}`}>{totalAlerts} alerts</span>
           )}
@@ -107,12 +94,6 @@ export default function LogsPanel({ summary = null, chatTraces = [], calls, rbac
           onClick={() => setTab("calls")}
         >
           Tool Calls ({totalCalls})
-        </button>
-        <button
-          className={`${styles.tab} ${tab === "rbac" ? styles.tabActive : ""}`}
-          onClick={() => setTab("rbac")}
-        >
-          RBAC Violations ({totalRbac})
         </button>
         <button
           className={`${styles.tab} ${tab === "alerts" ? styles.tabActive : ""}`}
@@ -167,7 +148,7 @@ export default function LogsPanel({ summary = null, chatTraces = [], calls, rbac
           </table>
           {failedChats.length > 0 ? (
             <div className={styles.empty}>
-              {failedChats.length} chat failures shown. Check Alerts for details when available.
+              {failedChats.length} chat failure(s). Check Alerts for details.
             </div>
           ) : null}
         </div>
@@ -210,40 +191,6 @@ export default function LogsPanel({ summary = null, chatTraces = [], calls, rbac
                   <td className={styles.errCell} title={c.error ?? undefined}>
                     {!c.success ? c.error ?? "-" : "-"}
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {tab === "rbac" && (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Role</th>
-                <th>Server</th>
-                <th>Tool</th>
-                <th>Patient</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rbacViolations.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className={styles.empty}>
-                    No RBAC violations recorded.
-                  </td>
-                </tr>
-              ) : null}
-              {rbacViolations.map((r, idx) => (
-                <tr key={`rbac-${r.timestamp}-${idx}`}>
-                  <td className={styles.mono}>{(r.timestamp || "").slice(11, 19)}</td>
-                  <td className={styles.mono}>{r.role}</td>
-                  <td className={styles.cap}>{r.server}</td>
-                  <td className={styles.mono}>{r.tool}</td>
-                  <td className={styles.mono}>{r.patient_id ?? "-"}</td>
                 </tr>
               ))}
             </tbody>
