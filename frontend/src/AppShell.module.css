@@ -1,0 +1,108 @@
+.shell {
+  height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.sidebarWrap {
+  flex-shrink: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  z-index: 2;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-5);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.assistantLayout {
+  display: flex;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+}
+
+.chatCol {
+  width: 100%;
+  max-width: 960px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  min-height: 0;
+}
+
+/* Mobile overlay */
+.mobileOverlay {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .sidebarWrap {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: auto;
+    transform: translateX(-110%);
+    transition: transform 180ms ease;
+    background: #f8fafc;
+    box-shadow: 0 20px 70px rgba(15, 23, 42, 0.18);
+    z-index: 10;
+  }
+
+  .mobileOpen {
+    transform: translateX(0);
+  }
+
+  .mobileOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.22);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+    z-index: 9;
+  }
+
+  .open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .main {
+    height: 100vh;
+  }
+
+  .content {
+    padding: var(--space-3);
+  }
+}
+
+@media (max-width: 560px) {
+  .content {
+    padding: var(--space-2);
+  }
+}

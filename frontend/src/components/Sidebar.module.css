@@ -1,0 +1,300 @@
+.sidebar {
+  background: #f8fafc;
+  border-right: 1px solid var(--border);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 260px;
+  min-width: 260px;
+  max-width: 260px;
+  overflow: hidden;
+  overflow-y: auto;
+}
+
+.collapsed {
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  padding: var(--space-4) var(--space-3);
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  flex-shrink: 0;
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: white;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 1), rgba(37, 99, 235, 0.7));
+  box-shadow: var(--shadow-sm);
+}
+
+.brandText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.brandTitle {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brandSub {
+  font-size: 12px;
+  color: var(--muted-2);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collapseBtn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--muted);
+  height: 34px;
+  width: 34px;
+  min-width: 34px;
+  display: grid;
+  place-items: center;
+  transition: background 140ms ease, transform 140ms ease;
+  flex-shrink: 0;
+}
+
+.collapseBtn:hover {
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.collapseIcon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.navItem {
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+  text-align: left;
+  width: 100%;
+  min-width: 0;
+}
+
+.navItem:hover {
+  background: rgba(37, 99, 235, 0.06);
+  border-color: rgba(37, 99, 235, 0.12);
+  color: var(--text);
+}
+
+.active {
+  background: rgba(37, 99, 235, 0.10);
+  border-color: rgba(37, 99, 235, 0.18);
+  color: var(--text);
+}
+
+.icon {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: rgba(15, 23, 42, 0.8);
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Recent chats ── */
+
+.recentsSection {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+
+.recentsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.recentsTitle {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted-2);
+}
+
+.newChatBtn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--muted);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+  transition: background 140ms ease, color 140ms ease;
+  flex-shrink: 0;
+}
+
+.newChatBtn:hover {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary);
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+.recentsEmpty {
+  font-size: 12.5px;
+  color: var(--muted-2);
+  padding: 6px 0;
+}
+
+.recentsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.recentItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.recentItem:hover {
+  background: rgba(37, 99, 235, 0.05);
+  border-color: rgba(37, 99, 235, 0.10);
+}
+
+.recentActive {
+  background: rgba(37, 99, 235, 0.09);
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.recentTitle {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 7px 8px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recentTitleText {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.recentTime {
+  font-size: 11px;
+  color: var(--muted-2);
+  display: block;
+}
+
+.recentDeleteBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--muted-2);
+  font-size: 16px;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.recentDeleteBtn:hover {
+  background: rgba(220, 38, 38, 0.09);
+  color: var(--error);
+}
+
+/* ── Footer ── */
+
+.footer {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+  flex-shrink: 0;
+}
+
+.footerTitle {
+  font-size: 11px;
+  color: var(--muted-2);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.footerBody {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--muted);
+}

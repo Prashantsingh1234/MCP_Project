@@ -14,6 +14,28 @@ import threading
 logger = logging.getLogger(__name__)
 
 
+def _scrub_phi(value: Any) -> Any:
+    """Remove PHI keys recursively from telemetry payloads (defense-in-depth)."""
+
+    try:
+        from src.utils.rbac import PHI_FIELDS as _PHI_FIELDS  # local import to avoid cycles
+
+        phi = {str(f).lower() for f in _PHI_FIELDS}
+    except Exception:
+        phi = {"name", "dob", "mrn", "discharge_note", "attending_physician"}
+
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            if str(k).lower() in phi:
+                continue
+            out[k] = _scrub_phi(v)
+        return out
+    if isinstance(value, list):
+        return [_scrub_phi(v) for v in value]
+    return value
+
+
 @dataclass
 class MCPCall:
     """Represents a single MCP tool call."""
@@ -24,6 +46,23 @@ class MCPCall:
     patient_id: Optional[str]
     duration_ms: float
     success: bool
+    error: Optional[str] = None
+
+
+@dataclass
+class ChatTrace:
+    """Represents a single user chat request outcome (not a tool call)."""
+
+    timestamp: str
+    conversation_id: Optional[str]
+    role: Optional[str]
+    patient_id: Optional[str]
+    latency_ms: float
+    success: bool
+    mcp_calls: int = 0
+    rbac_violations: int = 0
+    needs_clarification: bool = False
+    clarification_type: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -64,6 +103,7 @@ class Telemetry:
         self._alerts: list[Alert] = []
         self._rbac_violations: list[dict] = []
         self._calls: list[MCPCall] = []
+        self._chat_traces: list[ChatTrace] = []
         self._start_time = datetime.utcnow()
         self._lock = threading.Lock()
         
@@ -83,6 +123,20 @@ class Telemetry:
             success: Whether the call succeeded.
             error: Error message if failed.
         """
+        # Avoid inflating tool-call counts due to UI polling of telemetry endpoints.
+        # These calls are still observable via chat traces + server logs if needed.
+        if str(server).lower() == "telemetry":
+            ignore = {
+                "get_summary",
+                "get_recent_calls",
+                "get_system_health",
+                "get_alerts",
+                "get_mcp_call_count",
+                "trace_workflow",
+            }
+            if str(tool) in ignore:
+                return
+
         with self._lock:
             call = MCPCall(
                 timestamp=datetime.utcnow().isoformat(),
@@ -117,7 +171,7 @@ class Telemetry:
                 level=level,
                 source=source,
                 message=message,
-                details=details
+                details=_scrub_phi(details) if details is not None else None
             )
             self._alerts.append(alert)
             
@@ -155,6 +209,51 @@ class Telemetry:
                 f"Access denied: {role} attempted {server}.{tool}",
                 violation
             )
+
+    def record_chat_trace(
+        self,
+        *,
+        conversation_id: Optional[str],
+        role: Optional[str],
+        patient_id: Optional[str],
+        latency_ms: float,
+        success: bool,
+        mcp_calls: int = 0,
+        rbac_violations: int = 0,
+        needs_clarification: bool = False,
+        clarification_type: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        """Record a chat request outcome for observability in the UI.
+
+        IMPORTANT: Do not include raw user messages to avoid PHI leakage.
+        """
+        err = (error or "").strip() or None
+        if err and len(err) > 500:
+            err = err[:500] + "..."
+        with self._lock:
+            self._chat_traces.append(
+                ChatTrace(
+                    timestamp=datetime.utcnow().isoformat(),
+                    conversation_id=conversation_id,
+                    role=role,
+                    patient_id=patient_id,
+                    latency_ms=latency_ms,
+                    success=success,
+                    mcp_calls=int(mcp_calls or 0),
+                    rbac_violations=int(rbac_violations or 0),
+                    needs_clarification=bool(needs_clarification),
+                    clarification_type=str(clarification_type) if clarification_type else None,
+                    error=err,
+                )
+            )
+
+    def get_chat_traces(self, limit: Optional[int] = None) -> list[ChatTrace]:
+        """Get recent chat request traces."""
+        with self._lock:
+            if limit:
+                return self._chat_traces[-limit:]
+            return self._chat_traces.copy()
     
     def get_call_counts(self) -> dict[str, int]:
         """Get call counts by tool."""
@@ -235,6 +334,7 @@ class Telemetry:
             self._alerts.clear()
             self._rbac_violations.clear()
             self._calls.clear()
+            self._chat_traces.clear()
             self._start_time = datetime.utcnow()
             logger.info("Telemetry reset")
 

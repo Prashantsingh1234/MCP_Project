@@ -1,0 +1,424 @@
+/* ── Row layout ──────────────────────────────────────────────────────────── */
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.assistant { justify-content: flex-start; }
+.user      { justify-content: flex-end; }
+
+/* ── Avatar ──────────────────────────────────────────────────────────────── */
+.avatar {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 3px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+}
+
+/* ── Bubble ───────────────────────────────────────────────────────────────── */
+.bubble {
+  max-width: min(800px, 90%);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 2px 14px rgba(15, 23, 42, 0.07);
+  padding: 14px 16px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  transition: box-shadow 160ms ease;
+}
+
+.bubble:hover {
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.10);
+}
+
+/* User bubble */
+.user .bubble {
+  background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+  color: #e8f0fe;
+  border-color: transparent;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.22);
+}
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+.body {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.user .body { color: #e8f0fe; }
+
+/* Plain line */
+.plainLine {
+  margin: 3px 0;
+  color: inherit;
+}
+
+/* ── Section header ──────────────────────────────────────────────────────── */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.15px;
+  color: var(--text);
+  margin: 14px 0 8px;
+  padding: 0 0 7px;
+  border-bottom: 1.5px solid rgba(37, 99, 235, 0.15);
+}
+
+.sectionHeader:first-child { margin-top: 0; }
+
+.sectionHeaderIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ── Flag header (✔ Available: / ⚠ Not Available:) ──────────────────────── */
+.flagHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 12.5px;
+  margin: 10px 0 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+}
+
+.flagHeaderIcon { font-size: 14px; }
+
+.successHeader {
+  background: rgba(22, 163, 74, 0.07);
+  color: #15803d;
+  border-left-color: #22c55e;
+}
+
+.warningHeader {
+  background: rgba(245, 158, 11, 0.08);
+  color: #b45309;
+  border-left-color: #f59e0b;
+}
+
+.errorHeader {
+  background: rgba(220, 38, 38, 0.07);
+  color: #b91c1c;
+  border-left-color: #ef4444;
+}
+
+/* ── Flag line (✔/⚠/❌ rows) ─────────────────────────────────────────────── */
+.flagLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 5px 0;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  overflow-wrap: anywhere;
+}
+
+.flagDot {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.flagText {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* Flag type overrides */
+.success { border-color: rgba(22, 163, 74, 0.22); background: rgba(22, 163, 74, 0.06); }
+.warning { border-color: rgba(245, 158, 11, 0.28); background: rgba(245, 158, 11, 0.07); }
+.error   { border-color: rgba(220, 38, 38, 0.24);  background: rgba(220, 38, 38, 0.07); }
+
+.dot_success { background: rgba(22, 163, 74, 0.15); }
+.dot_warning { background: rgba(245, 158, 11, 0.18); }
+.dot_error   { background: rgba(220, 38, 38, 0.15); }
+
+/* ── Drug card (structured medication item) ──────────────────────────────── */
+.drugCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 13px;
+  margin: 4px 0;
+  border-radius: 11px;
+  border: 1px solid rgba(37, 99, 235, 0.13);
+  background: rgba(248, 250, 252, 0.9);
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+  flex-wrap: wrap;
+}
+
+.drugCard:hover {
+  background: rgba(37, 99, 235, 0.04);
+  border-color: rgba(37, 99, 235, 0.22);
+  transform: translateX(2px);
+}
+
+.drugMain {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.drugName {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #1d4ed8;
+}
+
+.drugBrands {
+  font-size: 11.5px;
+  color: var(--muted-2);
+}
+
+.drugMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.drugDoses {
+  font-size: 11.5px;
+  color: var(--muted);
+  background: rgba(15, 23, 42, 0.05);
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+}
+
+.drugUnits {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #15803d;
+  background: rgba(22, 163, 74, 0.09);
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(22, 163, 74, 0.18);
+}
+
+/* ── Plain list item ─────────────────────────────────────────────────────── */
+.listItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 11px;
+  margin: 3px 0;
+  border-radius: 9px;
+  border-left: 3px solid rgba(37, 99, 235, 0.22);
+  background: rgba(248, 250, 252, 0.7);
+}
+
+.listBullet {
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  opacity: 0.45;
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+
+.listText {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── Not-found / empty state card ───────────────────────────────────────── */
+/* When the assistant bubble contains only error/flag lines, add a subtle
+   red-tinted border to the whole bubble for immediate visual feedback.      */
+.bubble:has(.error:first-child) {
+  border-color: rgba(220, 38, 38, 0.22);
+  background: rgba(255, 249, 249, 0.95);
+}
+
+/* ── Separator ───────────────────────────────────────────────────────────── */
+.separator {
+  border: none;
+  border-top: 1px solid rgba(15, 23, 42, 0.10);
+  margin: 10px 0;
+}
+
+/* ── Inline badges ───────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 20px;
+  margin-left: 4px;
+  vertical-align: middle;
+  border: 1px solid transparent;
+}
+
+.badgeSpecialty {
+  background: rgba(124, 58, 237, 0.10);
+  color: #6d28d9;
+  border-color: rgba(124, 58, 237, 0.22);
+}
+
+.badgeControlled {
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.badgeUrgent {
+  background: rgba(245, 158, 11, 0.10);
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.badgeInfo {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+/* ── Meta bar ────────────────────────────────────────────────────────────── */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(15, 23, 42, 0.07);
+  font-size: 11px;
+  color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Invoice action buttons ──────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.actionsMulti {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.invoiceList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invoiceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.invoiceLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.2px;
+}
+
+.invoiceBtns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.actionBtn,
+.actionBtnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 20px;
+  padding: 7px 15px;
+  transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease;
+  white-space: nowrap;
+}
+
+.actionBtn {
+  background: #2563eb;
+  color: #fff;
+  border: 1px solid transparent;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.28);
+}
+.actionBtn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.34);
+}
+
+.actionBtnSecondary {
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.actionBtnSecondary:hover {
+  background: rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 560px) {
+  .bubble  { max-width: 95%; }
+  .body    { font-size: 13px; }
+  .avatar  { width: 28px; height: 28px; min-width: 28px; }
+  .drugCard { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .actionBtn,
+  .actionBtnSecondary { font-size: 12px; padding: 6px 12px; }
+}

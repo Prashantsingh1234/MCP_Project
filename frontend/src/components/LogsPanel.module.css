@@ -1,0 +1,188 @@
+.wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(241, 245, 249, 0.6), rgba(255, 255, 255, 1));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.subtitle {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted-2);
+}
+
+.counts {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.countBadge {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.countBad {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.22);
+  color: #7f1d1d;
+}
+
+.countWarn {
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.30);
+  color: #78350f;
+}
+
+/* ── Tabs ── */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: var(--space-3) var(--space-5) 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease;
+  white-space: nowrap;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tabActive {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ── Table ── */
+
+.tableWrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 720px;
+}
+
+.table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  color: var(--muted-2);
+  font-weight: 800;
+  border-bottom: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.9);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  vertical-align: top;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12.5px;
+}
+
+.cap {
+  text-transform: lowercase;
+}
+
+.msgCell {
+  max-width: 340px;
+  word-break: break-word;
+  font-size: 12.5px;
+}
+
+.errCell {
+  max-width: 420px;
+  word-break: break-word;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.rowFail td {
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.badge {
+  display: inline-flex;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 800;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.ok {
+  background: rgba(22, 163, 74, 0.08);
+  border-color: rgba(22, 163, 74, 0.22);
+  color: #14532d;
+}
+
+.bad {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.22);
+  color: #7f1d1d;
+}
+
+.warn {
+  background: rgba(245, 158, 11, 0.10);
+  border-color: rgba(245, 158, 11, 0.30);
+  color: #78350f;
+}
+
+.empty {
+  padding: 20px 14px;
+  color: var(--muted);
+  font-style: italic;
+}

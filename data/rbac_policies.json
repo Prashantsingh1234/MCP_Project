@@ -5,34 +5,55 @@
       "read_medications",
       "read_diagnosis_codes",
       "read_patient_demographics",
-      "read_admission_dates"
+      "read_admission_dates",
+      "validate_clinical",
+      "update_discharge_note",
+      "send_notification"
     ],
     "pharmacy": [
       "check_stock",
       "get_alternatives",
       "get_drug_price",
-      "submit_dispense_request"
-    ],
-    "billing": [
-      "read_charge_codes",
-      "generate_invoice",
-      "read_insurance_contract"
-    ]
-  },
-  "billing_agent": {
-    "ehr": [
-      "read_diagnosis_codes",
-      "read_admission_dates",
-      "read_ward"
-    ],
-    "pharmacy": [
-      "read_drug_price"
+      "submit_dispense_request",
+      "update_inventory",
+      "validate_drug"
     ],
     "billing": [
       "read_charge_codes",
       "generate_invoice",
       "read_insurance_contract",
-      "submit_claim"
+      "submit_claim",
+      "manage_payment",
+      "audit_billing"
+    ],
+    "security": [
+      "read_access_control"
+    ],
+    "telemetry": [
+      "read_telemetry"
+    ]
+  },
+  "billing_agent": {
+    "ehr": [
+      "read_diagnosis_codes",
+      "read_admission_dates"
+    ],
+    "pharmacy": [
+      "get_drug_price"
+    ],
+    "billing": [
+      "read_charge_codes",
+      "generate_invoice",
+      "read_insurance_contract",
+      "submit_claim",
+      "manage_payment",
+      "audit_billing"
+    ],
+    "security": [
+      "read_access_control"
+    ],
+    "telemetry": [
+      "read_telemetry"
     ]
   },
   "pharmacy_agent": {
@@ -45,9 +66,16 @@
       "get_alternatives",
       "get_drug_price",
       "submit_dispense_request",
-      "update_inventory"
+      "update_inventory",
+      "validate_drug"
     ],
-    "billing": []
+    "billing": [],
+    "security": [
+      "read_access_control"
+    ],
+    "telemetry": [
+      "read_telemetry"
+    ]
   },
   "clinical_agent": {
     "ehr": [
@@ -56,11 +84,22 @@
       "read_diagnosis_codes",
       "read_patient_demographics",
       "read_admission_dates",
-      "update_discharge_note"
+      "validate_clinical",
+      "update_discharge_note",
+      "send_notification"
     ],
     "pharmacy": [
-      "check_stock"
+      "check_stock",
+      "get_alternatives",
+      "get_drug_price",
+      "validate_drug"
     ],
-    "billing": []
+    "billing": [],
+    "security": [
+      "read_access_control"
+    ],
+    "telemetry": [
+      "read_telemetry"
+    ]
   }
 }

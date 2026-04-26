@@ -29,7 +29,11 @@ def _normalize_endpoint(endpoint: str) -> tuple[str, Optional[str]]:
 
 
 def is_configured() -> bool:
-    return bool(os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY"))
+    return bool(
+        os.getenv("AZURE_OPENAI_ENDPOINT")
+        and os.getenv("AZURE_OPENAI_API_KEY")
+        and os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+    )
 
 
 async def chat_completion(user_message: str, system_message: str) -> str:
@@ -38,6 +42,7 @@ async def chat_completion(user_message: str, system_message: str) -> str:
     api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
     api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
     deployment_env = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "")
+    timeout_s = float(os.getenv("AZURE_OPENAI_TIMEOUT_S", "30"))
 
     if not endpoint_raw or not api_key:
         raise RuntimeError("Azure OpenAI is not configured (missing AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY).")
@@ -60,6 +65,8 @@ async def chat_completion(user_message: str, system_message: str) -> str:
             azure_endpoint=azure_endpoint,
             api_key=api_key,
             api_version=api_version,
+            timeout=timeout_s,
+            max_retries=1,
         )
         resp = client.chat.completions.create(
             model=deployment,
@@ -72,4 +79,3 @@ async def chat_completion(user_message: str, system_message: str) -> str:
         return (resp.choices[0].message.content or "").strip()
 
     return await asyncio.to_thread(_do_call)
-

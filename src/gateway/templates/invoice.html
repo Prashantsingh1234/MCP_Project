@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Medical Invoice</title>
+    <style>
+      {{ css }}
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <div class="col">
+        <h1 class="h1">{{ hospital.hospital_name }}</h1>
+        <div class="muted">{{ hospital.address }}</div>
+        <div class="muted">{{ hospital.contact }}</div>
+      </div>
+      <div class="col" style="max-width: 320px">
+        <div class="metaBox">
+          <div class="h2" style="margin: 0">MEDICAL INVOICE</div>
+          <div class="labelGrid" style="margin-top: 10px">
+            <div class="label">Invoice No</div>
+            <div>{{ invoice.invoice_id }}</div>
+            <div class="label">Invoice Date</div>
+            <div>{{ invoice.invoice_date }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="row">
+      <div class="col metaBox">
+        <div class="h2">Patient Information (Non‑PHI)</div>
+        <div class="labelGrid">
+          <div class="label">Patient ID</div>
+          <div>{{ patient.patient_id }}</div>
+          <div class="label">Ward</div>
+          <div>{{ patient.ward }}</div>
+          <div class="label">Admission Date</div>
+          <div>{{ patient.admission_date }}</div>
+          <div class="label">Discharge Date</div>
+          <div>{{ patient.discharge_date }}</div>
+          <div class="label">Length of Stay</div>
+          <div>{{ patient.los_days }} day(s)</div>
+        </div>
+      </div>
+      <div class="col metaBox" style="max-width: 360px">
+        <div class="h2">Diagnosis & Insurance</div>
+        <div class="labelGrid">
+          <div class="label">ICD‑10 Codes</div>
+          <div>{{ diagnosis.icd10_codes | join(", ") }}</div>
+        </div>
+        {% if insurance and insurance.has_insurance %}
+        <div class="divider" style="margin: 12px 0"></div>
+        <div class="labelGrid">
+          <div class="label">Insurer</div>
+          <div>{{ insurance.insurer_name or "—" }}</div>
+          <div class="label">Plan</div>
+          <div>{{ insurance.plan_type or "—" }}</div>
+          <div class="label">Policy</div>
+          <div>{{ insurance.policy_number_masked or "—" }}</div>
+          <div class="label">Covered</div>
+          <div>₹{{ insurance.covered_amount_inr }}</div>
+        </div>
+        {% endif %}
+        {% if diagnosis.summary %}
+        <div style="margin-top: 10px" class="muted">{{ diagnosis.summary }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="h2">Medication / Charges</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width: 14%">Code</th>
+          <th style="width: 26%">Item</th>
+          <th>Description</th>
+          <th class="num" style="width: 10%">Qty</th>
+          <th class="num" style="width: 15%">Unit Price</th>
+          <th class="num" style="width: 15%">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="muted">{{ item.code or "—" }}</td>
+          <td>{{ item.name }}</td>
+          <td class="muted">{{ item.description }}</td>
+          <td class="num">{{ item.quantity }}</td>
+          <td class="num">₹{{ item.unit_price_inr }}</td>
+          <td class="num">₹{{ item.total_price_inr }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <div class="totalsBox">
+        <div class="totalsRow">
+          <div class="muted">Subtotal</div>
+          <div>₹{{ totals.subtotal_inr }}</div>
+        </div>
+        <div class="totalsRow">
+          <div class="muted">Taxes</div>
+          <div>₹{{ totals.taxes_inr }}</div>
+        </div>
+        <div class="totalsRow">
+          <div class="muted">Discounts</div>
+          <div>- ₹{{ totals.discounts_inr }}</div>
+        </div>
+        {% if totals.insurance_covered_inr %}
+        <div class="totalsRow">
+          <div class="muted">Insurance covered</div>
+          <div>- ₹{{ totals.insurance_covered_inr }}</div>
+        </div>
+        {% endif %}
+        <div class="totalsRow totalsRowStrong">
+          <div>Amount Due</div>
+          <div>₹{{ totals.amount_due_inr or totals.final_total_inr }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div><strong>Payment:</strong> Payable within 7 days.</div>
+      <div>This invoice is generated electronically and does not require a signature.</div>
+    </div>
+  </body>
+</html>

@@ -1,201 +1,305 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { chat, type ChatResponse } from "./api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import styles from "./AppShell.module.css";
+import Sidebar, { type NavKey } from "./components/Sidebar";
+import Header, { type SystemStatus } from "./components/Header";
+import ChatWindow from "./components/ChatWindow";
+import InputBox from "./components/InputBox";
+import Dashboard from "./components/Dashboard";
+import MetricsPanel from "./components/MetricsPanel";
+import LogsPanel from "./components/LogsPanel";
+import {
+  chat,
+  deleteSession,
+  getLogs,
+  getMetrics,
+  getSession,
+  getSessions,
+  getStatus,
+} from "./api";
+import type { ChatMessage } from "./components/MessageBubble";
+import type { SessionMeta } from "./api";
 
-type Role = "discharge_coordinator" | "billing_agent" | "pharmacy_agent" | "clinical_agent";
-
-type ChatMessage =
-  | { id: string; role: "user"; text: string; ts: number }
-  | { id: string; role: "assistant"; text: string; ts: number; raw?: ChatResponse };
-
-function nowId() {
+function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const SUGGESTIONS = [
-  "Show discharge medications for PAT-001",
-  "Generate invoice for PAT-001",
-  "Get billing-safe summary for PAT-006",
-  "Check stock for Farxiga"
-];
+const STORAGE_KEYS = {
+  sessions: "mcpdischarge.sessions.v1",
+};
+
+function newConvId() {
+  return typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+type View = NavKey;
+
+const WELCOME: ChatMessage = {
+  id: "welcome",
+  role: "assistant",
+  text: "Start by asking about a patient discharge.\n\nExample:\n✔ Discharge patient PAT-001 and generate invoice",
+  ts: Date.now(),
+};
 
 export default function App() {
-  const [role, setRole] = useState<Role>("discharge_coordinator");
+  const [view, setView] = useState<View>("assistant");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [metrics, setMetrics] = useState<any | null>(null);
+  const [logs, setLogs] = useState<any | null>(null);
+
+  const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [serverOk, setServerOk] = useState<null | boolean>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    {
-      id: nowId(),
-      role: "assistant",
-      text:
-        "MCPDischarge Chat is ready.\n\nTry one of these:\n" +
-        SUGGESTIONS.map((s) => `- ${s}`).join("\n"),
-      ts: Date.now()
+
+  const [conversationId, setConversationId] = useState<string>(newConvId);
+  const [sessions, setSessions] = useState<SessionMeta[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
+  const refreshSessionsRef = useRef<() => void>(() => {});
+
+const refreshSessions = useCallback(async () => {
+    try {
+      const s = await getSessions();
+      setSessions(s);
+      try {
+        localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(s));
+      } catch {
+        // ignore storage failures (private mode / quota)
+      }
+    } catch {
+      // ignore — backend may not be up yet
     }
-  ]);
+  }, []);
 
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const canSend = input.trim().length > 0 && !busy;
+  // Keep ref up-to-date so other callbacks can call it
+  refreshSessionsRef.current = refreshSessions;
 
+  const refreshMetricsAndLogs = useCallback(async () => {
+    try {
+      const [m, l] = await Promise.all([getMetrics(), getLogs(100)]);
+      setMetrics(m);
+      setLogs(l);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Poll system status every 2.5s
   useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [messages, busy]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/healthz")
-      .then((r) => r.ok)
-      .then((ok) => {
-        if (!cancelled) setServerOk(ok);
-      })
-      .catch(() => {
-        if (!cancelled) setServerOk(false);
-      });
+    let stop = false;
+    async function tick() {
+      try {
+        const s = await getStatus();
+        if (!stop) setStatus(s);
+      } catch {
+        if (!stop) setStatus({ ehr: { connected: false }, pharmacy: { connected: false }, billing: { connected: false } });
+      }
+    }
+    void tick();
+    const t = window.setInterval(tick, 2500);
     return () => {
-      cancelled = true;
+      stop = true;
+      window.clearInterval(t);
     };
   }, []);
 
-  async function send(text: string) {
-    const userText = text.trim();
-    if (!userText) return;
+  // Hydrate cached sessions immediately, then keep refreshing in background.
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.sessions);
+      if (cached) {
+        const parsed = JSON.parse(cached) as SessionMeta[];
+        if (Array.isArray(parsed)) setSessions(parsed);
+      }
+    } catch {
+      // ignore
+    }
 
-    const userMsg: ChatMessage = { id: nowId(), role: "user", text: userText, ts: Date.now() };
-    setMessages((m) => [...m, userMsg]);
+    void refreshSessions();
+    const t = window.setInterval(() => {
+      void refreshSessionsRef.current();
+    }, 4000);
+    return () => window.clearInterval(t);
+  }, [refreshSessions]);
+
+  // Auto-refresh metrics/logs when switching to those views
+  useEffect(() => {
+    if (view === "metrics" || view === "logs") {
+      void refreshMetricsAndLogs();
+    }
+  }, [view, refreshMetricsAndLogs]);
+
+  // While viewing Metrics/Logs, keep polling so the UI reflects live execution.
+  useEffect(() => {
+    if (view !== "metrics" && view !== "logs") return;
+    const t = window.setInterval(() => {
+      void refreshMetricsAndLogs();
+    }, 2500);
+    return () => window.clearInterval(t);
+  }, [view, refreshMetricsAndLogs]);
+
+  const pageTitle = useMemo(() => {
+    if (view === "dashboard") return "Dashboard";
+    if (view === "assistant") return "Discharge Assistant";
+    if (view === "metrics") return "Metrics";
+    return "Logs";
+  }, [view]);
+
+  async function send(text: string) {
+    const t = text.trim();
+    if (!t) return;
+    setView("assistant");
+    setMobileNavOpen(false);
+
+    const userMsg: ChatMessage = { id: uid(), role: "user", text: t, ts: Date.now() };
+    setMessages((m) => [...m.filter((x) => x.id !== "welcome"), userMsg]);
     setInput("");
     setBusy(true);
 
     try {
-      const res = await chat({ message: userText, role });
-      const a: ChatMessage = {
-        id: nowId(),
+      const res = await chat({ message: t, conversation_id: conversationId });
+      const assistant: ChatMessage = {
+        id: uid(),
         role: "assistant",
         text: res.answer,
         ts: Date.now(),
-        raw: res
+        latencyMs: res.latency_ms,
+        data: (res.data ?? null) as any,
       };
-      setMessages((m) => [...m, a]);
+      setMessages((m) => [...m, assistant]);
+      setActiveSessionId(conversationId);
+
+      // Refresh side data after each reply
+      void refreshMetricsAndLogs();
+      void refreshSessions();
     } catch (e) {
-      const errText = e instanceof Error ? e.message : String(e);
-      setMessages((m) => [
-        ...m,
-        { id: nowId(), role: "assistant", text: `Error: ${errText}`, ts: Date.now() }
-      ]);
+      const msg = e instanceof Error ? e.message : String(e);
+      setMessages((m) => [...m, { id: uid(), role: "assistant", text: `❌ ${msg}`, ts: Date.now() }]);
     } finally {
       setBusy(false);
     }
   }
 
-  const statusLabel = useMemo(() => {
-    if (serverOk === null) return "Checking gateway...";
-    return serverOk ? "Gateway online" : "Gateway offline";
-  }, [serverOk]);
+  function handleNewChat() {
+    const newId = newConvId();
+    setConversationId(newId);
+    setActiveSessionId(null);
+    setMessages([WELCOME]);
+    setInput("");
+    setView("assistant");
+    setMobileNavOpen(false);
+  }
+
+  async function handleSelectSession(id: string) {
+    try {
+      const sess = await getSession(id);
+      const loaded: ChatMessage[] = sess.messages.map((m) => ({
+        id: uid(),
+        role: m.role,
+        text: m.text,
+        ts: m.ts,
+        latencyMs: m.latencyMs,
+        data: m.data as any,
+      }));
+      setConversationId(id);
+      setActiveSessionId(id);
+      setMessages(loaded.length > 0 ? loaded : [WELCOME]);
+      setView("assistant");
+      setMobileNavOpen(false);
+    } catch {
+      // session may have been deleted; refresh list
+      void refreshSessions();
+    }
+  }
+
+  async function handleDeleteSession(id: string) {
+    try {
+      await deleteSession(id);
+    } catch {
+      // ignore
+    }
+    setSessions((prev) => {
+      const next = prev.filter((s) => s.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEYS.sessions, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    if (activeSessionId === id) {
+      handleNewChat();
+    }
+  }
 
   return (
-    <div className="page">
-      <header className="topbar">
-        <div className="brand">
-          <div className="logo">M</div>
-          <div>
-            <div className="title">MCPDischarge Chat</div>
-            <div className={`status ${serverOk ? "ok" : serverOk === false ? "bad" : ""}`}>
-              {statusLabel}
-            </div>
-          </div>
-        </div>
+    <div className={styles.shell}>
+      {/* Mobile overlay */}
+      <div
+        className={`${styles.mobileOverlay} ${mobileNavOpen ? styles.open : ""}`}
+        onClick={() => setMobileNavOpen(false)}
+      />
 
-        <div className="controls">
-          <label className="label">
-            Role
-            <select
-              className="select"
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              disabled={busy}
-            >
-              <option value="discharge_coordinator">discharge_coordinator</option>
-              <option value="billing_agent">billing_agent</option>
-              <option value="pharmacy_agent">pharmacy_agent</option>
-              <option value="clinical_agent">clinical_agent</option>
-            </select>
-          </label>
-        </div>
-      </header>
+      <div className={`${styles.sidebarWrap} ${mobileNavOpen ? styles.mobileOpen : ""}`}>
+        <Sidebar
+          active={view}
+          onSelect={(k) => {
+            setView(k);
+            setMobileNavOpen(false);
+          }}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((s) => !s)}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSelectSession={handleSelectSession}
+          onDeleteSession={handleDeleteSession}
+          onNewChat={handleNewChat}
+        />
+      </div>
 
-      <main className="layout">
-        <aside className="sidebar">
-          <div className="card">
-            <div className="cardTitle">Quick prompts</div>
-            <div className="chips">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} className="chip" onClick={() => send(s)} disabled={busy}>
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div className={styles.main}>
+        <Header
+          title={pageTitle}
+          status={status}
+          userName="Discharge User"
+          onOpenMobileNav={() => setMobileNavOpen(true)}
+        />
 
-          <div className="card">
-            <div className="cardTitle">Notes</div>
-            <div className="cardBody">
-              <div className="small">
-                - Include a patient id like <code>PAT-001</code> for patient questions.
-              </div>
-              <div className="small">
-                - Drug questions work without a patient id (e.g. “Check stock for Farxiga”).
+        <div className={styles.content}>
+          {view === "dashboard" ? (
+            <Dashboard status={status} onQuickAsk={(q) => send(q)} />
+          ) : null}
+
+          {view === "assistant" ? (
+            <div className={styles.assistantLayout}>
+              <div className={styles.chatCol}>
+                <ChatWindow messages={messages} busy={busy} />
+                <InputBox
+                  value={input}
+                  onChange={setInput}
+                  onSend={() => send(input)}
+                  disabled={busy}
+                />
               </div>
             </div>
-          </div>
-        </aside>
+          ) : null}
 
-        <section className="chat">
-          <div className="messages" ref={listRef}>
-            {messages.map((m) => (
-              <div key={m.id} className={`msg ${m.role}`}>
-                <div className="bubble">
-                  <pre className="text">{m.text}</pre>
-                  {m.role === "assistant" && m.raw?.latency_ms != null ? (
-                    <div className="meta">latency: {m.raw.latency_ms}ms</div>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-            {busy ? (
-              <div className="msg assistant">
-                <div className="bubble">
-                  <div className="typing">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          <form
-            className="composer"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (canSend) void send(input);
-            }}
-          >
-            <input
-              className="input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder='Ask: "Generate invoice for PAT-001"...'
-              disabled={busy}
+          {view === "metrics" ? <MetricsPanel data={metrics as any} /> : null}
+          {view === "logs" ? (
+            <LogsPanel
+              summary={(logs?.summary || null) as any}
+              chatTraces={(logs?.chat || []) as any}
+              calls={(logs?.calls || []) as any}
+              rbacViolations={(logs?.rbac_violations || []) as any}
+              alerts={(logs?.alerts || []) as any}
             />
-            <button className="send" type="submit" disabled={!canSend}>
-              Send
-            </button>
-          </form>
-        </section>
-      </main>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
-

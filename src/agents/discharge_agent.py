@@ -73,6 +73,8 @@ class AsyncMCPToolClient:
         self.sse_url = sse_url
         self._session_cm = None
         self._session = None
+        # The underlying MCP SSE transport is not concurrency-safe for parallel tool calls.
+        self._call_lock = asyncio.Lock()
 
     async def __aenter__(self):
         try:
@@ -102,8 +104,9 @@ class AsyncMCPToolClient:
         if self._session is None:
             raise RuntimeError("Client session is not initialized")
         try:
-            raw = await self._session.call_tool(tool, arguments)  # type: ignore[attr-defined]
-            return _extract_tool_result(raw)
+            async with self._call_lock:
+                raw = await self._session.call_tool(tool, arguments)  # type: ignore[attr-defined]
+                return _extract_tool_result(raw)
         except Exception as exc:
             raise ToolExecutionError(tool=tool, server=self.sse_url, reason=str(exc)) from exc
 
@@ -179,7 +182,7 @@ class DischargeCoordinationAgent:
                 )
 
                 alternative: Optional[dict[str, Any]] = None
-                if stock.get("found") and not stock.get("available"):
+                if stock.get("found", True) and not stock.get("available"):
                     alternative = await self._retry_call(
                         pharmacy,
                         "get_alternative",
@@ -215,7 +218,7 @@ class DischargeCoordinationAgent:
                     drug_charges.append({"total_price_inr": 0, "dispensing_fee": 0})
                     continue
 
-                if stock.get("found") and not stock.get("available"):
+                if stock.get("found", True) and not stock.get("available"):
                     alternatives = alt.get("alternatives", [])
                     if alternatives:
                         drug_name = alternatives[0].get("generic_name") or drug_name
@@ -268,7 +271,7 @@ class DischargeCoordinationAgent:
                     }
                 )
 
-            if stock.get("found") and not stock.get("available"):
+            if stock.get("found", True) and not stock.get("available"):
                 alt = pr.get("alternative") or {}
                 alternatives = alt.get("alternatives", [])
                 alt_name = alternatives[0]["generic_name"] if alternatives else None

@@ -14,40 +14,90 @@ from src.utils.telemetry import get_telemetry
 
 logger = logging.getLogger(__name__)
 
-# PHI fields that must be stripped before sharing across servers
-PHI_FIELDS = [
-    "name",
-    "dob", 
-    "mrn",
-    "discharge_note",
-    "attending_physician",
-    "patient_name",
-    "date_of_birth",
-    "medical_record_number",
-    "ssn",
-    "address",
-    "phone",
-    "email",
-]
+# PHI fields that must be stripped before sharing across servers.
+# README contract: billing must never receive these fields.
+PHI_FIELDS = ["name", "dob", "mrn", "discharge_note", "attending_physician"]
 
-# Tool to permission mapping
+# Tool to permission mapping — covers all tools across all 5 servers.
 TOOL_PERMISSIONS = {
-    # EHR Tools
+    # ── EHR: Core Clinical ──
     "get_patient_discharge_summary": "read_discharge_note",
     "get_discharge_medications": "read_medications",
     "get_diagnosis_codes": "read_diagnosis_codes",
     "get_admission_info": "read_admission_dates",
+    "list_patients": "read_admission_dates",
     "get_billing_safe_summary": "read_diagnosis_codes",
     "get_patient_demographics": "read_patient_demographics",
-    # Pharmacy Tools
+    "get_patient_history": "read_discharge_note",
+    # ── EHR: Clinical Validation ──
+    "validate_prescription": "validate_clinical",
+    "check_drug_interactions": "validate_clinical",
+    "check_dose_validity": "validate_clinical",
+    # ── EHR: Update / Workflow ──
+    "update_prescription": "update_discharge_note",
+    "mark_patient_ready_for_discharge": "update_discharge_note",
+    # ── EHR: Edge Cases ──
+    "mark_urgent_request": "read_discharge_note",
+    "escalate_to_doctor": "read_discharge_note",
+    "request_represcription": "read_medications",
+    # ── EHR: Data Validation ──
+    "validate_patient_id": "read_diagnosis_codes",
+    # ── EHR: Notifications ──
+    "notify_patient": "send_notification",
+    "notify_doctor": "send_notification",
+    # ── Pharmacy: Stock ──
     "check_stock": "check_stock",
+    "check_bulk_stock": "check_stock",
+    "list_in_stock_drugs": "check_stock",
+    # ── Pharmacy: Alternatives ──
     "get_alternative": "get_alternatives",
+    "get_all_alternatives": "get_alternatives",
+    "check_therapeutic_equivalence": "get_alternatives",
+    # ── Pharmacy: Drug Matching ──
+    "resolve_drug_name_alias": "check_stock",
+    "semantic_drug_search": "check_stock",
+    # ── Pharmacy: Pricing ──
     "get_price": "get_drug_price",
+    "get_bulk_price": "get_drug_price",
+    # ── Pharmacy: Dispensing ──
     "dispense_request": "submit_dispense_request",
-    # Billing Tools
+    "create_dispense_request": "submit_dispense_request",
+    "confirm_dispense": "submit_dispense_request",
+    "get_dispense_history": "check_stock",
+    # ── Pharmacy: Inventory ──
+    "update_stock": "update_inventory",
+    "check_nearby_pharmacy_availability": "get_alternatives",
+    # ── Pharmacy: Alerts ──
+    "detect_dose_conflict": "check_stock",
+    "flag_controlled_substance": "check_stock",
+    # ── Pharmacy: Data Validation ──
+    "validate_drug_name": "validate_drug",
+    # ── Billing: Core ──
     "get_charges": "read_charge_codes",
+    "get_charges_by_icd": "read_charge_codes",
+    "get_total_cost": "read_charge_codes",
+    # ── Billing: Insurance ──
     "get_insurance": "read_insurance_contract",
+    "calculate_insurance_coverage": "read_insurance_contract",
+    "validate_insurance": "read_insurance_contract",
+    # ── Billing: Payment ──
+    "generate_payment_link": "manage_payment",
+    "mark_invoice_paid": "manage_payment",
+    # ── Billing: Validation ──
+    "validate_billing_data": "audit_billing",
+    "audit_invoice": "audit_billing",
+    # ── Billing: Invoice ──
     "generate_invoice": "generate_invoice",
+    # ── Security (RBAC) ──
+    "check_access": "read_access_control",
+    "get_role_permissions": "read_access_control",
+    "log_rbac_violation": "read_access_control",
+    "get_access_logs": "read_access_control",
+    # ── Telemetry / Observability ──
+    "get_mcp_call_count": "read_telemetry",
+    "get_alerts": "read_telemetry",
+    "get_system_health": "read_telemetry",
+    "trace_workflow": "read_telemetry",
 }
 
 
@@ -76,32 +126,45 @@ class RBACEngine:
     
     def _default_policies(self) -> dict:
         """Return default RBAC policies if file not found."""
+        _security_ro = ["read_access_control"]
+        _telemetry_ro = ["read_telemetry"]
         return {
             "discharge_coordinator": {
                 "ehr": ["read_discharge_note", "read_medications", "read_diagnosis_codes",
-                        "read_patient_demographics", "read_admission_dates"],
-                "pharmacy": ["check_stock", "get_alternatives", "get_drug_price", 
-                            "submit_dispense_request"],
-                "billing": ["read_charge_codes", "generate_invoice", "read_insurance_contract"]
+                        "read_patient_demographics", "read_admission_dates",
+                        "validate_clinical", "update_discharge_note", "send_notification"],
+                "pharmacy": ["check_stock", "get_alternatives", "get_drug_price",
+                             "submit_dispense_request", "update_inventory", "validate_drug"],
+                "billing": ["read_charge_codes", "generate_invoice", "read_insurance_contract",
+                            "submit_claim", "manage_payment", "audit_billing"],
+                "security": _security_ro,
+                "telemetry": _telemetry_ro,
             },
             "billing_agent": {
-                "ehr": ["read_diagnosis_codes", "read_admission_dates", "read_ward"],
-                "pharmacy": ["read_drug_price"],
+                "ehr": ["read_diagnosis_codes", "read_admission_dates"],
+                "pharmacy": ["get_drug_price"],
                 "billing": ["read_charge_codes", "generate_invoice", "read_insurance_contract",
-                           "submit_claim"]
+                            "submit_claim", "manage_payment", "audit_billing"],
+                "security": _security_ro,
+                "telemetry": _telemetry_ro,
             },
             "pharmacy_agent": {
                 "ehr": ["read_medications", "read_diagnosis_codes"],
                 "pharmacy": ["check_stock", "get_alternatives", "get_drug_price",
-                            "submit_dispense_request", "update_inventory"],
-                "billing": []
+                             "submit_dispense_request", "update_inventory", "validate_drug"],
+                "billing": [],
+                "security": _security_ro,
+                "telemetry": _telemetry_ro,
             },
             "clinical_agent": {
                 "ehr": ["read_discharge_note", "read_medications", "read_diagnosis_codes",
-                        "read_patient_demographics", "read_admission_dates", "update_discharge_note"],
-                "pharmacy": ["check_stock"],
-                "billing": []
-            }
+                        "read_patient_demographics", "read_admission_dates",
+                        "validate_clinical", "update_discharge_note", "send_notification"],
+                "pharmacy": ["check_stock", "get_alternatives", "get_drug_price", "validate_drug"],
+                "billing": [],
+                "security": _security_ro,
+                "telemetry": _telemetry_ro,
+            },
         }
     
     def check_permission(self, role: str, server: str, tool: str, 

@@ -1,0 +1,136 @@
+/* Print-ready A4 invoice styling (HTML preview + future PDF renderers) */
+
+:root {
+  --text: #0f172a;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --border: #e5e7eb;
+  --header: #f3f4f6;
+}
+
+@page {
+  size: A4;
+  margin: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.col {
+  flex: 1;
+}
+
+.h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.h2 {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.divider {
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
+}
+
+.metaBox {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.labelGrid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 6px 14px;
+}
+
+.label {
+  font-weight: 700;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.table th {
+  background: var(--header);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 10px;
+  text-align: left;
+  font-size: 12px;
+  color: #374151;
+}
+
+.table td {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 10px;
+  vertical-align: top;
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.totals {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.totalsBox {
+  width: 320px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.totalsRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.totalsRowStrong {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 10px;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.footer {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
