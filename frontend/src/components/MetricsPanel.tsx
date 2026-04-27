@@ -23,10 +23,17 @@ function Card({ title, value, sub }: { title: string; value: string; sub?: strin
 export default function MetricsPanel({ data }: { data: MetricsSummary | null }) {
   const calls = data?.total_calls ?? 0;
   const okCalls = data?.successful_calls ?? 0;
-  const failCalls = data?.failed_calls ?? 0;
   const alerts = data?.total_alerts ?? 0;
   const successRate = data?.success_rate_pct ?? 0;
   const avgMs = data?.avg_duration_ms ?? 0;
+
+  const avgLabel = useMemo(() => {
+    const v = Number(avgMs) || 0;
+    if (v >= 100) return `${Math.round(v)}ms`;
+    if (v >= 10) return `${Math.round(v)}ms`;
+    // Avoid rounding tiny but real latencies down to 0ms.
+    return `${v.toFixed(1)}ms`;
+  }, [avgMs]);
 
   const subtitle = useMemo(() => {
     if (!data) return "Load metrics from gateway";
@@ -45,9 +52,8 @@ export default function MetricsPanel({ data }: { data: MetricsSummary | null }) 
       <div className={styles.grid}>
         <Card title="Tool calls" value={String(calls)} sub="Total MCP tool calls recorded" />
         <Card title="Successful" value={String(okCalls)} sub="Tool calls that succeeded" />
-        <Card title="Failed" value={String(failCalls)} sub="Tool calls that failed" />
         <Card title="Success rate" value={`${Math.round(successRate)}%`} sub="Across all tool calls" />
-        <Card title="Avg latency" value={`${Math.round(avgMs)}ms`} sub="Average per tool call" />
+        <Card title="Avg latency" value={avgLabel} sub="Average per tool call" />
         <Card title="Alerts" value={String(alerts)} sub="Warnings and errors raised" />
       </div>
     </div>

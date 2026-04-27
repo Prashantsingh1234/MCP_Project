@@ -66,7 +66,7 @@ class TelemetryServer:
             "failure_count": failure,
             "by_server": by_server,
             "patient_id_filter": patient_id,
-            "queried_at": datetime.utcnow().isoformat(),
+            "queried_at": datetime.now().isoformat(),
         }
 
     def get_alerts(self, patient_id: Optional[str] = None,
@@ -120,12 +120,51 @@ class TelemetryServer:
             "total_calls": summary.get("total_calls", 0),
             "total_alerts": summary.get("total_alerts", 0),
             "total_rbac_violations": summary.get("total_rbac_violations", 0),
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now().isoformat(),
         }
 
     def get_summary(self) -> dict[str, Any]:
         """Return the raw telemetry summary (counts, averages, breakdowns)."""
         return self.telemetry.get_summary()
+
+    def record_chat_trace(
+        self,
+        *,
+        conversation_id: Optional[str],
+        role: Optional[str],
+        patient_id: Optional[str],
+        latency_ms: float,
+        success: bool,
+        mcp_calls: int = 0,
+        rbac_violations: int = 0,
+        needs_clarification: bool = False,
+        clarification_type: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Record a PHI-safe chat trace for the Logs UI (no raw user text)."""
+        self.telemetry.record_chat_trace(
+            conversation_id=conversation_id,
+            role=role,
+            patient_id=patient_id,
+            latency_ms=float(latency_ms or 0),
+            success=bool(success),
+            mcp_calls=int(mcp_calls or 0),
+            rbac_violations=int(rbac_violations or 0),
+            needs_clarification=bool(needs_clarification),
+            clarification_type=str(clarification_type) if clarification_type else None,
+            error=str(error) if error else None,
+        )
+        return {"ok": True}
+
+    def get_chat_traces(self, limit: int = 100) -> dict[str, Any]:
+        """Return recent PHI-safe chat traces for UI display."""
+        limit = int(limit or 100)
+        if limit < 1:
+            limit = 1
+        if limit > 500:
+            limit = 500
+        rows = [c.__dict__ for c in self.telemetry.get_chat_traces(limit=limit)]
+        return {"chat": rows, "limit": limit}
 
     def get_recent_calls(self, limit: int = 100) -> dict[str, Any]:
         """Return recent tool calls, RBAC violations, and alerts for UI display."""
@@ -137,8 +176,10 @@ class TelemetryServer:
         telem = self.telemetry
         summary = telem.get_summary()
         calls = [c.__dict__ for c in telem.get_calls(limit=limit)]
+        chat = [c.__dict__ for c in telem.get_chat_traces(limit=limit)]
         return {
             "summary": summary,
+            "chat": chat,
             "calls": calls,
             "rbac_violations": telem.get_rbac_violations()[-limit:],
             "alerts": [a.__dict__ for a in telem.get_alerts()][-limit:],

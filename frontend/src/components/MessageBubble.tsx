@@ -191,6 +191,15 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
   const htmlUrl = typeof message.data?.invoice_html_url === "string"
     ? (message.data.invoice_html_url as string) : null;
 
+  const rxPdfUrl = typeof message.data?.prescription_pdf_url === "string"
+    ? (message.data.prescription_pdf_url as string) : null;
+  const rxHtmlUrl = typeof message.data?.prescription_html_url === "string"
+    ? (message.data.prescription_html_url as string) : null;
+
+  const mcpTrace = Array.isArray(message.data?.mcp_trace)
+    ? (message.data!.mcp_trace as Array<{step:number;server:string;tool:string;duration_ms:number;success:boolean;error?:string}>)
+    : null;
+
   const pdfUrls = asStringMap(message.data?.invoice_pdf_urls);
   const htmlUrls = asStringMap(message.data?.invoice_html_urls);
   const invoicePatients = Array.from(new Set([
@@ -317,7 +326,7 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                   <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                Download PDF
+                Download Invoice PDF
               </a>
             )}
             {htmlUrl && (
@@ -328,6 +337,50 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
                 Preview Invoice
               </a>
             )}
+          </div>
+        )}
+
+        {/* Prescription actions */}
+        {isAssistant && (rxPdfUrl || rxHtmlUrl) && (
+          <div className={styles.actions}>
+            {rxPdfUrl && (
+              <a className={styles.actionBtn} href={rxPdfUrl} target="_blank" rel="noreferrer">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
+                </svg>
+                Download Prescription PDF
+              </a>
+            )}
+            {rxHtmlUrl && (
+              <a className={styles.actionBtnSecondary} href={rxHtmlUrl} target="_blank" rel="noreferrer">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+                Preview Prescription
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* MCP execution trace */}
+        {isAssistant && mcpTrace && mcpTrace.length > 0 && (
+          <div className={styles.tracePanel}>
+            <div className={styles.traceTitle}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+              MCP Execution Trace ({mcpTrace.length} steps)
+            </div>
+            {mcpTrace.map((step) => (
+              <div key={step.step} className={`${styles.traceStep} ${step.success ? styles.traceOk : styles.traceFail}`}>
+                <span className={styles.traceIcon}>{step.success ? "✔" : "✖"}</span>
+                <span className={styles.traceServer}>{step.server}</span>
+                <span className={styles.traceArrow}>→</span>
+                <span className={styles.traceTool}>{step.tool}</span>
+                <span className={styles.traceDuration}>{step.duration_ms}ms</span>
+                {step.error && <span className={styles.traceError}>{step.error}</span>}
+              </div>
+            ))}
           </div>
         )}
       </div>

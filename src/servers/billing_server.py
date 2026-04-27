@@ -197,9 +197,9 @@ class BillingServer:
         
         # Create invoice
         invoice = {
-            "invoice_id": f"INV-{patient_id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "invoice_id": f"INV-{patient_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}",
             "patient_id": patient_id,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now().isoformat(),
             "ward": ward,
             "los_days": los_days,
             "diagnosis_icd10": icd_codes,
@@ -492,7 +492,7 @@ class BillingServer:
         amount = latest_invoice.get("patient_responsibility", 0)
         
         # Generate payment link (simulated)
-        payment_id = f"PAY-{patient_id}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        payment_id = f"PAY-{patient_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
         payment = {
             "payment_id": payment_id,
@@ -500,7 +500,7 @@ class BillingServer:
             "invoice_id": latest_invoice.get("invoice_id"),
             "amount_inr": amount,
             "status": "PENDING",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now().isoformat(),
             "payment_link": f"https://payments.hospital.example.com/pay/{payment_id}",
             "qr_code": f"PAY:{payment_id}:{amount}"
         }
@@ -533,13 +533,13 @@ class BillingServer:
         
         latest_invoice = invoices[-1]
         latest_invoice["status"] = "PAID"
-        latest_invoice["paid_at"] = datetime.utcnow().isoformat()
+        latest_invoice["paid_at"] = datetime.now().isoformat()
         
         # Update payment record
         for payment in self._payments:
             if payment.get("patient_id") == patient_id and payment.get("status") == "PENDING":
                 payment["status"] = "COMPLETED"
-                payment["completed_at"] = datetime.utcnow().isoformat()
+                payment["completed_at"] = datetime.now().isoformat()
         
         self.telemetry.record_alert("INFO", "Billing", f"Invoice paid for patient {patient_id}")
         

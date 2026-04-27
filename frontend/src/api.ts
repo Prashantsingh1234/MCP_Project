@@ -28,6 +28,8 @@ export type StatusResponse = {
   ehr: { connected: boolean };
   pharmacy: { connected: boolean };
   billing: { connected: boolean };
+  security?: { connected: boolean };
+  telemetry?: { connected: boolean };
   azure_openai_configured: boolean;
 };
 

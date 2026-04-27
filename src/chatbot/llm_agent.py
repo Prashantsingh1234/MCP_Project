@@ -479,6 +479,8 @@ class LLMToolCallingAgent:
         role: str,
         user_text: str,
         chat_history: Optional[list[dict[str, Any]]] = None,
+        on_step: Optional[Any] = None,
+        on_trace: Optional[Any] = None,
     ) -> AgentResult:
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self._system_prompt(state, role)},
@@ -499,6 +501,84 @@ class LLMToolCallingAgent:
         _invoice_generated: list[bool] = [False]
         _seen_patient_ids: set[str] = set()
 
+        # MCP execution trace — step-by-step list shown in chat UI
+        _mcp_trace: list[dict[str, Any]] = []
+
+        # Shared sequential counter used by both the agent loop and the workflow
+        # shortcut so that pre-call (trace) and post-call (step) events share the
+        # same step number, enabling the frontend to update rows in-place.
+        _trace_seq: list[int] = [0]
+
+        def _safe_label(tool: str, args: dict) -> str:
+            """PHI-safe short label extracted from tool args."""
+            drug = str(args.get("drug_name") or args.get("drug") or "").strip()
+            pid = str(args.get("patient_id") or "").strip().upper()
+            if drug:
+                return drug[:40]
+            if pid.startswith("PAT-"):
+                return pid
+            return ""
+
+        # Maps tool name → display server label
+        _TOOL_SERVER_MAP: dict[str, str] = {
+            "discharge_with_invoice": "Workflow",
+            "get_patient_discharge_summary": "EHR",
+            "get_discharge_medications": "EHR",
+            "get_diagnosis_codes": "EHR",
+            "get_admission_info": "EHR",
+            "list_patients": "EHR",
+            "get_billing_safe_summary": "EHR",
+            "get_patient_history": "EHR",
+            "validate_prescription": "EHR",
+            "check_drug_interactions": "EHR",
+            "check_dose_validity": "EHR",
+            "update_prescription": "EHR",
+            "mark_patient_ready_for_discharge": "EHR",
+            "mark_urgent_request": "EHR",
+            "escalate_to_doctor": "EHR",
+            "request_represcription": "EHR",
+            "notify_patient": "EHR",
+            "notify_doctor": "EHR",
+            "validate_patient_id": "EHR",
+            "check_stock": "Pharmacy",
+            "check_bulk_stock": "Pharmacy",
+            "list_in_stock_drugs": "Pharmacy",
+            "get_alternative": "Pharmacy",
+            "get_all_alternatives": "Pharmacy",
+            "check_therapeutic_equivalence": "Pharmacy",
+            "resolve_drug_name_alias": "Pharmacy",
+            "semantic_drug_search": "Pharmacy",
+            "get_price": "Pharmacy",
+            "get_bulk_price": "Pharmacy",
+            "dispense_request": "Pharmacy",
+            "create_dispense_request": "Pharmacy",
+            "confirm_dispense": "Pharmacy",
+            "update_stock": "Pharmacy",
+            "detect_dose_conflict": "Pharmacy",
+            "flag_controlled_substance": "Pharmacy",
+            "validate_drug_name": "Pharmacy",
+            "check_nearby_pharmacy_availability": "Pharmacy",
+            "get_charges": "Billing",
+            "get_charges_by_icd": "Billing",
+            "get_total_cost": "Billing",
+            "get_insurance": "Billing",
+            "calculate_insurance_coverage": "Billing",
+            "validate_insurance": "Billing",
+            "generate_payment_link": "Billing",
+            "mark_invoice_paid": "Billing",
+            "validate_billing_data": "Billing",
+            "audit_invoice": "Billing",
+            "generate_invoice": "Billing",
+            "check_access": "Security",
+            "get_role_permissions": "Security",
+            "log_rbac_violation": "Security",
+            "get_access_logs": "Security",
+            "get_mcp_call_count": "Telemetry",
+            "get_alerts": "Telemetry",
+            "get_system_health": "Telemetry",
+            "trace_workflow": "Telemetry",
+        }
+
         async def exec_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
             args = args or {}
             try:
@@ -511,7 +591,11 @@ class LLMToolCallingAgent:
             # ── Workflow shortcut ─────────────────────────────────────────────
             if name == "discharge_with_invoice":
                 patient_id = str(args.get("patient_id", "")).strip().upper()
-                result = await self._workflow.discharge_with_invoice(client, patient_id)
+                result = await self._workflow.discharge_with_invoice(
+                    client, patient_id,
+                    on_trace=on_trace,
+                    step_counter=_trace_seq,
+                )
                 safe = strip_phi(result)
                 state.last_patient_id = patient_id
                 state.medications = list(safe.get("medications") or [])
@@ -946,17 +1030,71 @@ class LLMToolCallingAgent:
                             # response data so the gateway can attach PDF/HTML download links.
                             if _invoice_generated[0] and state.last_invoice and not (data or {}).get("invoice"):
                                 data = {**(data or {}), "invoice": dict(state.last_invoice)}
+                    # Always attach the MCP execution trace so the UI can show step-by-step progress
+                    if _mcp_trace:
+                        data = {**(data or {}), "mcp_trace": _mcp_trace}
                     return AgentResult(answer=answer, data=data)
 
+                # ── Pre-call trace event ─────────────────────────────────────
+                _trace_seq[0] += 1
+                current_step = _trace_seq[0]
+                if on_trace is not None:
+                    _label = _safe_label(tool_name_norm, call_args)
+                    try:
+                        on_trace({
+                            "type": "trace",
+                            "step": current_step,
+                            "server": _TOOL_SERVER_MAP.get(tool_name_norm, "MCP"),
+                            "tool": tool_name_norm,
+                            "label": _label,
+                            "message": (
+                                f"Calling {_TOOL_SERVER_MAP.get(tool_name_norm, 'MCP')} → {tool_name_norm}"
+                                + (f" ({_label})" if _label else "")
+                            ),
+                        })
+                    except Exception:
+                        pass
+
                 try:
+                    import time as _time
+                    _t0 = _time.perf_counter()
                     result = await exec_tool(tool_name_norm, call_args)
+                    _duration = round((_time.perf_counter() - _t0) * 1000, 1)
                     executed_tools += 1
+                    if tool_name_norm != "respond":
+                        _step_entry = {
+                            "step": current_step,
+                            "server": _TOOL_SERVER_MAP.get(tool_name_norm, "MCP"),
+                            "tool": tool_name_norm,
+                            "duration_ms": _duration,
+                            "success": True,
+                        }
+                        _mcp_trace.append(_step_entry)
+                        if on_step is not None:
+                            try:
+                                on_step(_step_entry)
+                            except Exception:
+                                pass
                     messages.append({
                         "role": "tool",
                         "tool_call_id": call_id,
                         "content": json.dumps(result, ensure_ascii=False),
                     })
                 except RBACError as exc:
+                    _fail_entry = {
+                        "step": current_step,
+                        "server": _TOOL_SERVER_MAP.get(tool_name_norm, "MCP"),
+                        "tool": tool_name_norm,
+                        "duration_ms": 0,
+                        "success": False,
+                        "error": "access_denied",
+                    }
+                    _mcp_trace.append(_fail_entry)
+                    if on_step is not None:
+                        try:
+                            on_step(_fail_entry)
+                        except Exception:
+                            pass
                     messages.append({
                         "role": "tool",
                         "tool_call_id": call_id,
@@ -964,12 +1102,34 @@ class LLMToolCallingAgent:
                     })
                 except (ToolExecutionError, MCPConnectionError) as exc:
                     reason = exc.details.get("reason") if isinstance(exc, ToolExecutionError) else str(exc)
+                    _fail_entry2 = {
+                        "step": current_step,
+                        "server": _TOOL_SERVER_MAP.get(tool_name_norm, "MCP"),
+                        "tool": tool_name_norm,
+                        "duration_ms": 0,
+                        "success": False,
+                        "error": reason,
+                    }
+                    _mcp_trace.append(_fail_entry2)
+                    if on_step is not None:
+                        try:
+                            on_step(_fail_entry2)
+                        except Exception:
+                            pass
                     messages.append({
                         "role": "tool",
                         "tool_call_id": call_id,
                         "content": json.dumps({"error": "tool_failed", "message": reason}),
                     })
                 except Exception as exc:
+                    _mcp_trace.append({
+                        "step": len(_mcp_trace) + 1,
+                        "server": _TOOL_SERVER_MAP.get(tool_name_norm, "MCP"),
+                        "tool": tool_name_norm,
+                        "duration_ms": 0,
+                        "success": False,
+                        "error": str(exc),
+                    })
                     messages.append({
                         "role": "tool",
                         "tool_call_id": call_id,

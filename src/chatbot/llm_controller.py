@@ -775,7 +775,7 @@ class LLMChatController:
         process_inputs=process_inputs_controller,
         process_outputs=process_outputs_controller,
     )
-    async def handle_message(self, user_text: str, *, conversation_id: Optional[str] = None) -> ControllerResponse:
+    async def handle_message(self, user_text: str, *, conversation_id: Optional[str] = None, on_step: Optional[Any] = None, on_trace: Optional[Any] = None) -> ControllerResponse:
         if not user_text or not user_text.strip():
             return ControllerResponse(success=False, answer="Please provide a valid message.")
 
@@ -894,6 +894,8 @@ class LLMChatController:
                     role=role,
                     user_text=user_text,
                     chat_history=state.chat_history[:],  # pass full history for multi-turn context
+                    on_step=on_step,
+                    on_trace=on_trace,
                 )
                 if result.answer.strip().lower().startswith("request timed out while planning tool calls"):
                     fb = await self._fallback(user_text=user_text, state=state, client=client)

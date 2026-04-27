@@ -522,6 +522,40 @@ def create_telemetry_mcp():
             return telem.get_summary()
 
     @mcp.tool()
+    def record_chat_trace(
+        conversation_id: Optional[str] = None,
+        role: Optional[str] = None,
+        patient_id: Optional[str] = None,
+        latency_ms: float = 0.0,
+        success: bool = True,
+        mcp_calls: int = 0,
+        rbac_violations: int = 0,
+        needs_clarification: bool = False,
+        clarification_type: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Record a PHI-safe chat trace for the Logs UI (no raw user text)."""
+        with MCPCallTimer("telemetry", "record_chat_trace", "system", patient_id):
+            return telem.record_chat_trace(
+                conversation_id=conversation_id,
+                role=role,
+                patient_id=patient_id,
+                latency_ms=latency_ms,
+                success=success,
+                mcp_calls=mcp_calls,
+                rbac_violations=rbac_violations,
+                needs_clarification=needs_clarification,
+                clarification_type=clarification_type,
+                error=error,
+            )
+
+    @mcp.tool()
+    def get_chat_traces(limit: int = 100) -> dict[str, Any]:
+        """Return recent PHI-safe chat traces for UI display."""
+        with MCPCallTimer("telemetry", "get_chat_traces", "system", None):
+            return telem.get_chat_traces(limit=limit)
+
+    @mcp.tool()
     def get_recent_calls(limit: int = 100) -> dict[str, Any]:
         """Return recent tool calls, RBAC violations, and alerts for the UI."""
         with MCPCallTimer("telemetry", "get_recent_calls", "system", None):

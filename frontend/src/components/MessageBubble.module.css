@@ -413,6 +413,74 @@
   transform: translateY(-1px);
 }
 
+/* ── MCP trace panel ─────────────────────────────────────────────────────── */
+.tracePanel {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.traceTitle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.traceStep {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  margin: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.traceOk  { background: rgba(22, 163, 74, 0.06); }
+.traceFail { background: rgba(220, 38, 38, 0.06); }
+
+.traceIcon  { font-size: 10px; min-width: 12px; }
+.traceOk .traceIcon  { color: #16a34a; }
+.traceFail .traceIcon { color: #dc2626; }
+
+.traceServer {
+  font-weight: 700;
+  color: #2563eb;
+  min-width: 64px;
+}
+
+.traceArrow { color: var(--muted-2); }
+
+.traceTool {
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traceDuration {
+  color: var(--muted-2);
+  font-size: 10.5px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.traceError {
+  color: #dc2626;
+  font-size: 10.5px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 560px) {
   .bubble  { max-width: 95%; }

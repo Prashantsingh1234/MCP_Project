@@ -134,3 +134,31 @@ body {
   color: var(--muted);
 }
 
+.noteBox {
+  margin-top: 18px;
+  background: #fff7ed;
+  border: 1px solid #fb923c;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.noteTitle {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #c2410c;
+}
+
+.noteItem {
+  padding-left: 10px;
+  color: #374151;
+}
+
+.safetyMsg {
+  margin-top: 10px;
+  font-weight: 700;
+  color: #b45309;
+}
+

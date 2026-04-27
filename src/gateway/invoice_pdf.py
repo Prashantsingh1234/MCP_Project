@@ -138,6 +138,7 @@ def generate_invoice_pdf(invoice_data: dict[str, Any]) -> bytes:
     diagnosis = safe_invoice_data["diagnosis"]
     items: list[dict[str, Any]] = safe_invoice_data["items"]
     totals = safe_invoice_data["totals"]
+    notes: dict[str, Any] = safe_invoice_data.get("notes") or {}
     payment_url = str(invoice.get("payment_url") or "").strip() or None
 
     story: list[Any] = []
@@ -377,6 +378,38 @@ def generate_invoice_pdf(invoice_data: dict[str, Any]) -> bytes:
     story.append(_bookmark(totals_outer, key="totals_box", title="Totals (Summary)", level=1))
     story.append(Spacer(1, 14))
 
+    # Out-of-stock / substitution note (mandatory when alternatives were used)
+    if notes.get("has_out_of_stock"):
+        story.append(Spacer(1, 8))
+        note_style = styles["BodyText"].clone("NoteStyle")
+        note_style.fontName = "Helvetica"
+        note_style.fontSize = 10
+        note_style.leading = 14
+        note_style.backColor = colors.HexColor("#fff7ed")
+        note_style.borderColor = colors.HexColor("#fb923c")
+        note_style.borderPadding = 8
+        note_style.borderWidth = 0.5
+        note_style.borderRadius = 4
+
+        note_lines = ["<b>Note:</b>"]
+        note_lines.append("Some prescribed medicines were unavailable.")
+        subs: list[dict] = notes.get("substituted") or []
+        if subs:
+            note_lines.append("Alternative medications have been suggested:")
+            for s in subs:
+                note_lines.append(f"  • {s.get('from', '')} → {s.get('to', '')}")
+        oos: list[str] = notes.get("out_of_stock") or []
+        if oos:
+            note_lines.append("No alternative available for:")
+            for d in oos:
+                note_lines.append(f"  • {d}")
+        note_lines.append("")
+        note_lines.append(
+            "<b>⚠ Please consult your doctor before taking alternative medicines.</b>"
+        )
+        story.append(Paragraph("<br/>".join(note_lines), note_style))
+        story.append(Spacer(1, 8))
+
     footer = (
         "Payment: Payable within 7 days.<br/>"
         "This invoice is generated electronically and does not require a signature."
@@ -393,6 +426,8 @@ def build_invoice_data(
     insurance: dict[str, Any],
     invoice: dict[str, Any],
     line_items: list[InvoiceLineItem],
+    substituted_drugs: Optional[list[dict]] = None,
+    out_of_stock_drugs: Optional[list[str]] = None,
     hospital_name: str = "CityCare Hospital",
     hospital_address: str = "1 Healthcare Avenue, Sector 21, Bengaluru 560001",
     hospital_contact: str = "billing@citycare.example • +91 80 4000 0000",
@@ -443,6 +478,20 @@ def build_invoice_data(
         tail = policy_number[-4:] if len(policy_number) >= 4 else policy_number
         masked_policy = f"****{tail}"
 
+    subs = list(substituted_drugs or [])
+    oos = list(out_of_stock_drugs or [])
+    has_stock_issues = bool(subs or oos)
+    notes: dict[str, Any] = {
+        "has_out_of_stock": has_stock_issues,
+        "substituted": subs,
+        "out_of_stock": oos,
+        "mandatory_note": (
+            "Note:\nSome prescribed medicines were unavailable.\n"
+            "Alternative medications have been suggested.\n\n"
+            "Please consult your doctor before taking alternative medicines."
+        ) if has_stock_issues else None,
+    }
+
     return {
         "hospital": {
             "hospital_name": hospital_name,
@@ -453,8 +502,8 @@ def build_invoice_data(
             "website": hospital_website,
         },
         "invoice": {
-            "invoice_id": invoice.get("invoice_id") or f"INV-{patient['patient_id']}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
-            "invoice_date": (invoice.get("generated_at") or datetime.utcnow().isoformat())[:10],
+            "invoice_id": invoice.get("invoice_id") or f"INV-{patient['patient_id']}-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "invoice_date": (invoice.get("generated_at") or datetime.now().isoformat())[:10],
             "payment_url": payment_url,
         },
         "insurance": {
@@ -477,7 +526,7 @@ def build_invoice_data(
             "invoice_total_inr": round(invoice_total, 2),
             "insurance_covered_inr": round(covered_amount, 2),
             "amount_due_inr": round(amount_due, 2),
-            # Back-compat for existing templates
             "final_total_inr": round(amount_due, 2),
         },
+        "notes": notes,
     }

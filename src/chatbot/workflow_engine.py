@@ -15,11 +15,38 @@ class WorkflowEngine:
         process_inputs=process_inputs_workflow,
         process_outputs=process_outputs_workflow,
     )
-    async def discharge(self, client: MCPClient, patient_id: str, *, include_invoice: bool) -> dict[str, Any]:
+    async def discharge(
+        self,
+        client: MCPClient,
+        patient_id: str,
+        *,
+        include_invoice: bool,
+        on_trace: Any = None,
+        step_counter: list[int] | None = None,
+    ) -> dict[str, Any]:
+        _counter = step_counter if step_counter is not None else [0]
+
+        def _trace(server: str, tool: str, label: str = "") -> None:
+            if on_trace is None:
+                return
+            _counter[0] += 1
+            try:
+                on_trace({
+                    "type": "trace",
+                    "step": _counter[0],
+                    "server": server,
+                    "tool": tool,
+                    "label": label,
+                    "message": f"Calling {server} → {tool}" + (f" ({label})" if label else ""),
+                })
+            except Exception:
+                pass
+
         alerts: list[dict[str, Any]] = []
         substitutions: list[dict[str, Any]] = []
         conflicts: list[dict[str, Any]] = []
 
+        _trace("EHR", "get_discharge_medications", patient_id)
         meds = await client.ehr_call("get_discharge_medications", {"patient_id": patient_id}, patient_id=patient_id)
 
         # Build a stock-check style summary for downstream formatting without re-calling tools.
@@ -34,6 +61,7 @@ class WorkflowEngine:
             drug_query = med.get("brand") or med.get("drug_name")
             dose = med.get("dose")
 
+            _trace("Pharmacy", "check_stock", str(drug_query or ""))
             stock = await client.pharmacy_call(
                 "check_stock", {"drug_name": drug_query, "quantity": 1, "dose": dose}, patient_id=patient_id
             )
@@ -72,6 +100,7 @@ class WorkflowEngine:
 
             alternative = None
             if not stock.get("available"):
+                _trace("Pharmacy", "get_alternative", str(drug_query or ""))
                 alternative = await client.pharmacy_call("get_alternative", {"drug_name": drug_query}, patient_id=patient_id)
                 alternatives = (alternative or {}).get("alternatives", [])
                 if alternatives:
@@ -116,6 +145,7 @@ class WorkflowEngine:
 
             pharmacy_results.append({"med": med, "stock": stock, "alternative": alternative})
 
+        _trace("EHR", "get_billing_safe_summary", patient_id)
         billing_safe = await client.ehr_call("get_billing_safe_summary", {"patient_id": patient_id}, patient_id=patient_id)
 
         invoice: dict[str, Any] | None = None
@@ -138,6 +168,7 @@ class WorkflowEngine:
                         drug_name = alternatives[0].get("generic_name") or drug_name
 
                 try:
+                    _trace("Pharmacy", "get_price", str(drug_name or ""))
                     price = await client.pharmacy_call(
                         "get_price", {"drug_name": drug_name, "quantity": qty}, patient_id=patient_id
                     )
@@ -158,6 +189,7 @@ class WorkflowEngine:
                         }
                     )
 
+            _trace("Billing", "generate_invoice", patient_id)
             invoice = await client.billing_call(
                 "generate_invoice",
                 {"patient_id": patient_id, "billing_safe_ehr": billing_safe, "drug_charges": drug_charges},
@@ -267,5 +299,17 @@ class WorkflowEngine:
         process_inputs=process_inputs_workflow,
         process_outputs=process_outputs_workflow,
     )
-    async def discharge_with_invoice(self, client: MCPClient, patient_id: str) -> dict[str, Any]:
-        return await self.discharge(client, patient_id, include_invoice=True)
+    async def discharge_with_invoice(
+        self,
+        client: MCPClient,
+        patient_id: str,
+        *,
+        on_trace: Any = None,
+        step_counter: list[int] | None = None,
+    ) -> dict[str, Any]:
+        return await self.discharge(
+            client, patient_id,
+            include_invoice=True,
+            on_trace=on_trace,
+            step_counter=step_counter,
+        )

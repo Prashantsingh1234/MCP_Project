@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+import contextvars
 import logging
 import socket
 import re
@@ -39,7 +40,8 @@ except Exception:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+import json
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.chatbot.llm_controller import LLMChatController
@@ -50,6 +52,7 @@ from src.gateway.llm_azure import is_configured as azure_configured
 from src.utils.telemetry import get_telemetry
 from src.agents.discharge_agent import AsyncMCPToolClient
 from src.gateway.invoice_pdf import InvoiceLineItem, build_invoice_data, generate_invoice_pdf, render_invoice_html
+from src.gateway.prescription_pdf import collect_prescription_data, generate_prescription_pdf, render_prescription_html
 from src.utils.langsmith_tracing import langsmith_status
 
 logger = logging.getLogger("MCPDischargeChatGateway")
@@ -102,7 +105,10 @@ def _upsert_session(
 # ── Invoice helpers ────────────────────────────────────────────────────────────
 
 async def _collect_invoice_data(pid: str) -> dict:
-    """Collect all data required to render an invoice via MCP SSE.
+    """Collect invoice data via MCP, checking stock and substituting alternatives.
+
+    This is the SINGLE SOURCE OF TRUTH for invoice amounts — the same data flows
+    to chat output, PDF, and HTML preview, eliminating amount mismatches.
 
     Runs inside a fresh event loop (spawned from asyncio.to_thread) so that the
     MCP SDK's anyio cancel scopes never conflict with FastAPI's event loop.
@@ -110,6 +116,9 @@ async def _collect_invoice_data(pid: str) -> dict:
     actor = ActorContext(role="discharge_coordinator")
     metrics_obj = RequestMetrics(patient_id=pid)
     urls = MCPServerURLs()
+
+    substituted_drugs: list[dict] = []
+    out_of_stock_drugs: list[str] = []
 
     async with MCPClient(urls, actor, metrics_obj) as client:
         billing_safe = await client.ehr_call(
@@ -145,22 +154,63 @@ async def _collect_invoice_data(pid: str) -> dict:
 
         drug_charges_for_billing: list[dict] = []
         for med in meds:
-            drug_label = med.get("drug_name") or med.get("brand") or "Medication"
+            original_label = med.get("drug_name") or med.get("brand") or "Medication"
+            drug_query = med.get("brand") or med.get("drug_name")
+            qty = int(med.get("days_supply", 1))
+
+            # ── Check stock (single source of truth for availability) ──────────
+            try:
+                stock = await client.pharmacy_call(
+                    "check_stock",
+                    {"drug_name": drug_query, "quantity": qty, "dose": med.get("dose")},
+                    patient_id=pid,
+                )
+            except Exception:
+                stock = {"available": True, "found": True}
+
+            if not stock.get("found", True):
+                out_of_stock_drugs.append(original_label)
+                continue
+
+            drug_to_price = stock.get("generic_name") or drug_query
+            drug_label = original_label
+
+            if not stock.get("available", True):
+                # ── Out of stock: try to get alternative ──────────────────────
+                try:
+                    alt = await client.pharmacy_call(
+                        "get_alternative", {"drug_name": drug_query}, patient_id=pid
+                    )
+                    alternatives = (alt or {}).get("alternatives", [])
+                except Exception:
+                    alternatives = []
+
+                if alternatives:
+                    chosen = alternatives[0]
+                    alt_name = chosen.get("generic_name") or drug_to_price
+                    substituted_drugs.append({"from": original_label, "to": alt_name})
+                    drug_to_price = alt_name
+                    drug_label = f"{alt_name} (substitute for {original_label})"
+                else:
+                    # No alternative — exclude from invoice, add note
+                    out_of_stock_drugs.append(original_label)
+                    continue
+
             desc = " ".join(
                 x
                 for x in [
                     med.get("dose"),
                     med.get("frequency"),
-                    f"{med.get('days_supply')} days" if med.get("days_supply") else None,
+                    f"{qty} days" if qty else None,
                     med.get("route"),
                 ]
                 if x
             )
-            qty = int(med.get("days_supply", 1))
+
             try:
                 price = await client.pharmacy_call(
                     "get_price",
-                    {"drug_name": med.get("brand") or med.get("drug_name"), "quantity": qty},
+                    {"drug_name": drug_to_price, "quantity": qty},
                     patient_id=pid,
                 )
             except Exception:
@@ -205,7 +255,14 @@ async def _collect_invoice_data(pid: str) -> dict:
             patient_id=pid,
         )
 
-    return {"billing_safe": billing_safe, "insurance": insurance, "invoice": invoice, "line_items": line_items}
+    return {
+        "billing_safe": billing_safe,
+        "insurance": insurance,
+        "invoice": invoice,
+        "line_items": line_items,
+        "substituted_drugs": substituted_drugs,
+        "out_of_stock_drugs": out_of_stock_drugs,
+    }
 
 
 def _sync_collect_invoice_data(pid: str) -> dict:
@@ -280,6 +337,8 @@ def status():
         "ehr": {"connected": _tcp_ok("127.0.0.1", 8001)},
         "pharmacy": {"connected": _tcp_ok("127.0.0.1", 8002)},
         "billing": {"connected": _tcp_ok("127.0.0.1", 8003)},
+        "security": {"connected": _tcp_ok("127.0.0.1", 8004)},
+        "telemetry": {"connected": _tcp_ok("127.0.0.1", 8005)},
         "azure_openai_configured": azure_configured(),
         "langsmith": langsmith_status(),
     }
@@ -311,28 +370,72 @@ def _sync_fetch_remote_telemetry_logs(limit: int) -> Optional[dict[str, Any]]:
     return asyncio.run(_fetch_remote_telemetry_logs(limit))
 
 
+async def _run_blocking_no_ctx(func, *args):
+    """Run a blocking callable in a thread without inheriting request contextvars.
+
+    This avoids anyio cancel-scope task-mismatch issues on Windows when the MCP SDK
+    (anyio-based) is used inside thread-spawned event loops.
+    """
+    loop = asyncio.get_running_loop()
+    ctx = contextvars.Context()
+    return await loop.run_in_executor(None, lambda: ctx.run(func, *args))
+
+async def _fetch_remote_record_chat_trace(payload: dict[str, Any]) -> bool:
+    try:
+        async with AsyncMCPToolClient("http://localhost:8005/sse") as c:
+            await asyncio.wait_for(c.call_tool("record_chat_trace", payload), timeout=1.5)
+        return True
+    except Exception:
+        return False
+
+
+def _sync_fetch_remote_record_chat_trace(payload: dict[str, Any]) -> bool:
+    return bool(asyncio.run(_fetch_remote_record_chat_trace(payload)))
+
+
 @app.get("/api/metrics")
 async def metrics():
-    remote = await asyncio.to_thread(_sync_fetch_remote_telemetry_summary)
-    if isinstance(remote, dict) and remote:
-        return remote
-    return get_telemetry().get_summary()
+    # Metrics page is labeled "Gateway telemetry (local)" and should reflect
+    # end-to-end tool-call latency (including client/network overhead), which
+    # is only measured in the gateway process.
+    local = get_telemetry().get_summary()
+
+    # Alerts (and RBAC violations) may be produced by other servers. Merge their
+    # counts in so the dashboard reflects the system's overall health without
+    # changing latency semantics (still gateway-local).
+    remote = await _run_blocking_no_ctx(_sync_fetch_remote_telemetry_summary)
+    if isinstance(remote, dict):
+        try:
+            local_alerts = int(local.get("total_alerts") or 0)
+            remote_alerts = int(remote.get("total_alerts") or 0)
+            local["total_alerts"] = local_alerts + remote_alerts
+        except Exception:
+            pass
+        try:
+            local_rbac = int(local.get("total_rbac_violations") or 0)
+            remote_rbac = int(remote.get("total_rbac_violations") or 0)
+            local["total_rbac_violations"] = local_rbac + remote_rbac
+        except Exception:
+            pass
+
+    return local
 
 
 @app.get("/api/logs")
 async def logs(limit: int = 100):
     limit = int(limit or 100)
     # Tool-call logs should come from the telemetry server (single source of truth across servers).
-    remote = await asyncio.to_thread(_sync_fetch_remote_telemetry_logs, limit)
+    remote = await _run_blocking_no_ctx(_sync_fetch_remote_telemetry_logs, limit)
 
-    # Chat traces are recorded in the gateway process only.
+    # Chat traces are recorded per-request; prefer telemetry-server aggregation when available
+    # (avoids empty chat logs under multi-worker gateway deployments).
     local_telem = get_telemetry()
-    chat_rows = [c.__dict__ for c in local_telem.get_chat_traces(limit=limit)]
+    local_chat_rows = [c.__dict__ for c in local_telem.get_chat_traces(limit=limit)]
 
     if isinstance(remote, dict) and remote.get("summary") is not None:
         return {
-            "summary": remote.get("summary"),
-            "chat": chat_rows,
+             "summary": remote.get("summary"),
+            "chat": remote.get("chat") if isinstance(remote.get("chat"), list) else local_chat_rows,
             "calls": remote.get("calls") or [],
             "rbac_violations": remote.get("rbac_violations") or [],
             "alerts": remote.get("alerts") or [],
@@ -342,7 +445,7 @@ async def logs(limit: int = 100):
     calls = local_telem.get_calls(limit=limit)
     return {
         "summary": local_telem.get_summary(),
-        "chat": chat_rows,
+        "chat": local_chat_rows,
         "calls": [c.__dict__ for c in calls],
         "rbac_violations": local_telem.get_rbac_violations()[-limit:],
         "alerts": [a.__dict__ for a in local_telem.get_alerts()][-limit:],
@@ -396,13 +499,14 @@ async def invoice_pdf(patient_id: str):
         return missing
 
     try:
-        # Run MCP calls in a dedicated thread+event-loop to avoid anyio cancel-scope conflicts
         collected = await asyncio.to_thread(_sync_collect_invoice_data, pid)
         payload = build_invoice_data(
             billing_safe_summary=collected["billing_safe"],
             insurance=collected.get("insurance") or {},
             invoice=collected["invoice"],
             line_items=collected["line_items"],
+            substituted_drugs=collected.get("substituted_drugs") or [],
+            out_of_stock_drugs=collected.get("out_of_stock_drugs") or [],
         )
         pdf_bytes = generate_invoice_pdf(payload)
     except RuntimeError as exc:
@@ -441,6 +545,8 @@ async def invoice_html(patient_id: str):
             insurance=collected.get("insurance") or {},
             invoice=collected["invoice"],
             line_items=collected["line_items"],
+            substituted_drugs=collected.get("substituted_drugs") or [],
+            out_of_stock_drugs=collected.get("out_of_stock_drugs") or [],
         )
         html = render_invoice_html(payload)
     except RuntimeError as exc:
@@ -449,6 +555,77 @@ async def invoice_html(patient_id: str):
         logger.exception("Invoice HTML generation failed")
         return Response(
             content=f"Invoice generation failed: {exc}",
+            status_code=503,
+            media_type="text/plain",
+        )
+
+    return Response(content=html.encode("utf-8"), media_type="text/html; charset=utf-8")
+
+
+# ── Prescription endpoints ─────────────────────────────────────────────────────
+
+@app.get("/api/prescription/pdf")
+async def prescription_pdf(patient_id: str):
+    """Generate and download a prescription PDF for the patient."""
+    pid = (patient_id or "").strip().upper()
+    if not pid.startswith("PAT-"):
+        return Response(content="Invalid patient_id. Use PAT-XXX.", status_code=400, media_type="text/plain")
+
+    missing = _require_mcp_services()
+    if missing is not None:
+        return missing
+
+    try:
+        actor = ActorContext(role="discharge_coordinator")
+        metrics_obj = RequestMetrics(patient_id=pid)
+        urls = MCPServerURLs()
+        rx_data = await asyncio.to_thread(
+            lambda: asyncio.run(collect_prescription_data(pid, actor, metrics_obj, urls))
+        )
+        pdf_bytes = generate_prescription_pdf(rx_data)
+    except RuntimeError as exc:
+        return Response(content=str(exc), status_code=500, media_type="text/plain")
+    except Exception as exc:
+        logger.exception("Prescription PDF generation failed")
+        return Response(
+            content=f"Prescription generation failed: {exc}",
+            status_code=503,
+            media_type="text/plain",
+        )
+
+    filename = f"prescription_{pid}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/prescription/html")
+async def prescription_html_view(patient_id: str):
+    """HTML preview for the prescription."""
+    pid = (patient_id or "").strip().upper()
+    if not pid.startswith("PAT-"):
+        return Response(content="Invalid patient_id. Use PAT-XXX.", status_code=400, media_type="text/plain")
+
+    missing = _require_mcp_services()
+    if missing is not None:
+        return missing
+
+    try:
+        actor = ActorContext(role="discharge_coordinator")
+        metrics_obj = RequestMetrics(patient_id=pid)
+        urls = MCPServerURLs()
+        rx_data = await asyncio.to_thread(
+            lambda: asyncio.run(collect_prescription_data(pid, actor, metrics_obj, urls))
+        )
+        html = render_prescription_html(rx_data)
+    except RuntimeError as exc:
+        return Response(content=str(exc), status_code=500, media_type="text/plain")
+    except Exception as exc:
+        logger.exception("Prescription HTML generation failed")
+        return Response(
+            content=f"Prescription generation failed: {exc}",
             status_code=503,
             media_type="text/plain",
         )
@@ -497,6 +674,18 @@ async def chat(req: ChatRequest):
 
             ok = bool(getattr(ctrl, "success", True))
             err = None if ok else (ctrl.answer or "").strip()
+            payload = {
+                "conversation_id": conversation_id,
+                "role": role,
+                "patient_id": pid,
+                "latency_ms": round(latency_ms, 1),
+                "success": ok,
+                "mcp_calls": last_mcp,
+                "rbac_violations": last_rbac,
+                "needs_clarification": needs_clarification,
+                "clarification_type": str(clarification_type) if clarification_type else None,
+                "error": err,
+            }
             get_telemetry().record_chat_trace(
                 conversation_id=conversation_id,
                 role=role,
@@ -509,6 +698,10 @@ async def chat(req: ChatRequest):
                 clarification_type=str(clarification_type) if clarification_type else None,
                 error=err,
             )
+            try:
+                await _run_blocking_no_ctx(_sync_fetch_remote_record_chat_trace, payload)
+            except Exception:
+                pass
         except Exception:
             pass
 
@@ -535,6 +728,10 @@ async def chat(req: ChatRequest):
             if pid and inv:
                 extra["invoice_pdf_url"] = f"/api/invoice/pdf?patient_id={pid}"
                 extra["invoice_html_url"] = f"/api/invoice/html?patient_id={pid}"
+            # Prescription links whenever a patient is identified
+            if pid:
+                extra["prescription_pdf_url"] = f"/api/prescription/pdf?patient_id={pid}"
+                extra["prescription_html_url"] = f"/api/prescription/html?patient_id={pid}"
 
             # Multi-patient responses: provide per-patient invoice links so the UI can render them.
             pids = ctrl.data.get("patients")
@@ -586,6 +783,18 @@ async def chat(req: ChatRequest):
             last_rbac = int(getattr(state, "rbac_violations_last", 0) or 0)
             m = re.search(r"\bPAT-\d{3}\b", message.upper())
             pid = m.group(0) if m else None
+            payload = {
+                "conversation_id": conversation_id,
+                "role": role,
+                "patient_id": pid,
+                "latency_ms": round(latency_ms, 1),
+                "success": False,
+                "mcp_calls": last_mcp,
+                "rbac_violations": last_rbac,
+                "needs_clarification": False,
+                "clarification_type": None,
+                "error": str(exc),
+            }
             get_telemetry().record_chat_trace(
                 conversation_id=conversation_id,
                 role=role,
@@ -598,6 +807,10 @@ async def chat(req: ChatRequest):
                 clarification_type=None,
                 error=str(exc),
             )
+            try:
+                await _run_blocking_no_ctx(_sync_fetch_remote_record_chat_trace, payload)
+            except Exception:
+                pass
         except Exception:
             pass
         try:
@@ -618,3 +831,194 @@ async def chat(req: ChatRequest):
             latency_ms=round(latency_ms, 1),
             conversation_id=conversation_id,
         )
+
+
+# ── Streaming chat endpoint (SSE) ─────────────────────────────────────────────
+
+@app.post("/api/chat/stream")
+async def chat_stream(req: ChatRequest):
+    """
+    Server-Sent Events endpoint. Sends JSON objects line by line:
+      {"type": "trace", "step": N, "server": "...", "tool": "...", "label": "...", "message": "Calling ..."}
+      {"type": "step",  "step": N, "server": "...", "tool": "...", "duration_ms": X, "success": bool}
+      {"type": "done",  "answer": "...", "data": {...}, "latency_ms": X}
+      {"type": "error", "message": "..."}
+    """
+    message = req.message.strip()
+    conversation_id = (req.conversation_id or "").strip() or None
+    role = (req.role or "").strip() or None
+
+    step_queue: asyncio.Queue[dict] = asyncio.Queue()
+
+    def on_trace(trace: dict) -> None:
+        step_queue.put_nowait({**trace, "type": "trace"})
+
+    def on_step(step: dict) -> None:
+        step_queue.put_nowait({**step, "type": "step"})
+
+    async def generate():
+        start = time.perf_counter()
+
+        async def run_agent() -> None:
+            try:
+                ctrl = await CONTROLLER.handle_message(
+                    message,
+                    conversation_id=conversation_id,
+                    on_step=on_step,
+                    on_trace=on_trace,
+                )
+                latency_ms = (time.perf_counter() - start) * 1000
+                try:
+                    conv_key = conversation_id or "default"
+                    state = CONTROLLER.conversations.get(conv_key)
+                    last_mcp = int(getattr(state, "mcp_call_count_last", 0) or 0)
+                    last_rbac = int(getattr(state, "rbac_violations_last", 0) or 0)
+
+                    pid = None
+                    needs_clarification = False
+                    clarification_type = None
+                    if ctrl.data and isinstance(ctrl.data, dict):
+                        pid = ctrl.data.get("patient_id")
+                        needs_clarification = bool(ctrl.data.get("needs_clarification") or False)
+                        clarification_type = ctrl.data.get("clarification_type")
+                    if not pid:
+                        m = re.search(r"\bPAT-\d{3}\b", message.upper())
+                        pid = m.group(0) if m else None
+
+                    ok = bool(getattr(ctrl, "success", True))
+                    err = None if ok else (ctrl.answer or "").strip()
+                    payload = {
+                        "conversation_id": conversation_id,
+                        "role": role,
+                        "patient_id": pid,
+                        "latency_ms": round(latency_ms, 1),
+                        "success": ok,
+                        "mcp_calls": last_mcp,
+                        "rbac_violations": last_rbac,
+                        "needs_clarification": needs_clarification,
+                        "clarification_type": str(clarification_type) if clarification_type else None,
+                        "error": err,
+                    }
+                    get_telemetry().record_chat_trace(
+                        conversation_id=conversation_id,
+                        role=role,
+                        patient_id=pid,
+                        latency_ms=round(latency_ms, 1),
+                        success=ok,
+                        mcp_calls=last_mcp,
+                        rbac_violations=last_rbac,
+                        needs_clarification=needs_clarification,
+                        clarification_type=str(clarification_type) if clarification_type else None,
+                        error=err,
+                    )
+                    try:
+                        await _run_blocking_no_ctx(_sync_fetch_remote_record_chat_trace, payload)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+
+                # Build merged_data identical to the regular /api/chat endpoint
+                extra: dict[str, Any] = {}
+                if ctrl.data and isinstance(ctrl.data, dict):
+                    pid = ctrl.data.get("patient_id")
+                    inv = ctrl.data.get("invoice")
+                    if pid and inv:
+                        extra["invoice_pdf_url"] = f"/api/invoice/pdf?patient_id={pid}"
+                        extra["invoice_html_url"] = f"/api/invoice/html?patient_id={pid}"
+                    if pid:
+                        extra["prescription_pdf_url"] = f"/api/prescription/pdf?patient_id={pid}"
+                        extra["prescription_html_url"] = f"/api/prescription/html?patient_id={pid}"
+                    pids = ctrl.data.get("patients")
+                    if not isinstance(pids, list):
+                        if isinstance(ctrl.data.get("invoices_by_patient"), dict):
+                            pids = list((ctrl.data.get("invoices_by_patient") or {}).keys())
+                        elif isinstance(ctrl.data.get("reports_by_patient"), dict):
+                            pids = list((ctrl.data.get("reports_by_patient") or {}).keys())
+                    if isinstance(pids, list) and pids:
+                        try:
+                            extra["invoice_pdf_urls"] = {str(p): f"/api/invoice/pdf?patient_id={p}" for p in pids}
+                            extra["invoice_html_urls"] = {str(p): f"/api/invoice/html?patient_id={p}" for p in pids}
+                        except Exception:
+                            pass
+
+                merged_data: dict[str, Any] = {
+                    **(ctrl.data or {}),
+                    **extra,
+                    "azure_openai_configured": azure_configured(),
+                }
+
+                if conversation_id:
+                    _upsert_session(
+                        conversation_id,
+                        message,
+                        ctrl.answer,
+                        {k: v for k, v in merged_data.items() if k != "azure_openai_configured"},
+                        round(latency_ms, 1),
+                    )
+
+                step_queue.put_nowait({
+                    "type": "done",
+                    "answer": ctrl.answer,
+                    "data": merged_data,
+                    "latency_ms": round(latency_ms, 1),
+                    "conversation_id": conversation_id,
+                })
+            except Exception as exc:
+                latency_ms = (time.perf_counter() - start) * 1000
+                try:
+                    conv_key = conversation_id or "default"
+                    state = CONTROLLER.conversations.get(conv_key)
+                    last_mcp = int(getattr(state, "mcp_call_count_last", 0) or 0)
+                    last_rbac = int(getattr(state, "rbac_violations_last", 0) or 0)
+                    m = re.search(r"\bPAT-\d{3}\b", message.upper())
+                    pid = m.group(0) if m else None
+                    payload = {
+                        "conversation_id": conversation_id,
+                        "role": role,
+                        "patient_id": pid,
+                        "latency_ms": round(latency_ms, 1),
+                        "success": False,
+                        "mcp_calls": last_mcp,
+                        "rbac_violations": last_rbac,
+                        "needs_clarification": False,
+                        "clarification_type": None,
+                        "error": str(exc),
+                    }
+                    get_telemetry().record_chat_trace(
+                        conversation_id=conversation_id,
+                        role=role,
+                        patient_id=pid,
+                        latency_ms=round(latency_ms, 1),
+                        success=False,
+                        mcp_calls=last_mcp,
+                        rbac_violations=last_rbac,
+                        needs_clarification=False,
+                        clarification_type=None,
+                        error=str(exc),
+                    )
+                    try:
+                        await _run_blocking_no_ctx(_sync_fetch_remote_record_chat_trace, payload)
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+                step_queue.put_nowait({"type": "error", "message": str(exc)})
+
+        task = asyncio.create_task(run_agent())
+
+        try:
+            while True:
+                item = await step_queue.get()
+                event_type = item.get("type")
+                yield f"data: {json.dumps(item)}\n\n"
+                if event_type in ("done", "error"):
+                    break
+        finally:
+            await task
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

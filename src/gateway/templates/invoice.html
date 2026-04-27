@@ -126,6 +126,26 @@
       </div>
     </div>
 
+    {% if notes and notes.has_out_of_stock %}
+    <div class="noteBox">
+      <div class="noteTitle">Note</div>
+      <div>Some prescribed medicines were unavailable.</div>
+      {% if notes.substituted %}
+      <div style="margin-top:6px"><strong>Substitutions made:</strong></div>
+      {% for s in notes.substituted %}
+      <div class="noteItem">• {{ s.from }} → {{ s.to }}</div>
+      {% endfor %}
+      {% endif %}
+      {% if notes.out_of_stock %}
+      <div style="margin-top:6px"><strong>Unavailable (no alternative found):</strong></div>
+      {% for d in notes.out_of_stock %}
+      <div class="noteItem">• {{ d }}</div>
+      {% endfor %}
+      {% endif %}
+      <div class="safetyMsg">⚠ Please consult your doctor before taking alternative medicines.</div>
+    </div>
+    {% endif %}
+
     <div class="footer">
       <div><strong>Payment:</strong> Payable within 7 days.</div>
       <div>This invoice is generated electronically and does not require a signature.</div>

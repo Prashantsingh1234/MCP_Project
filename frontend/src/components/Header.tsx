@@ -4,6 +4,8 @@ export type SystemStatus = {
   ehr: { connected: boolean };
   pharmacy: { connected: boolean };
   billing: { connected: boolean };
+  security?: { connected: boolean };
+  telemetry?: { connected: boolean };
 };
 
 type Props = {
@@ -47,6 +49,8 @@ export default function Header({ title, status, userName, onOpenMobileNav }: Pro
             <Pill label="EHR" ok={status.ehr.connected} />
             <Pill label="Pharmacy" ok={status.pharmacy.connected} />
             <Pill label="Billing" ok={status.billing.connected} />
+            <Pill label="Security" ok={status.security?.connected ?? false} />
+            <Pill label="Telemetry" ok={status.telemetry?.connected ?? false} />
           </div>
         ) : (
           <div className={styles.statusLoading}>Checking system status…</div>

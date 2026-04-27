@@ -8,7 +8,6 @@ import Dashboard from "./components/Dashboard";
 import MetricsPanel from "./components/MetricsPanel";
 import LogsPanel from "./components/LogsPanel";
 import {
-  chat,
   deleteSession,
   getLogs,
   getMetrics,
@@ -16,8 +15,20 @@ import {
   getSessions,
   getStatus,
 } from "./api";
+
 import type { ChatMessage } from "./components/MessageBubble";
 import type { SessionMeta } from "./api";
+
+export type LiveEvent = {
+  step: number;
+  server: string;
+  tool: string;
+  label: string;
+  /** "running" while in-flight, "ok" on success, "error" on failure */
+  status: "running" | "ok" | "error";
+  duration_ms?: number;
+  error?: string;
+};
 
 function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -54,6 +65,7 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [liveEvents, setLiveEvents] = useState<LiveEvent[]>([]);
 
   const [conversationId, setConversationId] = useState<string>(newConvId);
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -163,9 +175,9 @@ const refreshSessions = useCallback(async () => {
     setMessages((m) => [...m.filter((x) => x.id !== "welcome"), userMsg]);
     setInput("");
     setBusy(true);
+    setLiveEvents([]);
 
-    // Optimistically add/update this session in the sidebar immediately so
-    // the user sees it even before the backend responds.
+    // Optimistically add/update this session in the sidebar immediately.
     const now = new Date().toISOString();
     const optimisticSession: SessionMeta = { id: conversationId, title: t.slice(0, 60), created_at: now, last_used: now, message_count: 1 };
     setSessions((prev) => {
@@ -178,26 +190,89 @@ const refreshSessions = useCallback(async () => {
     });
 
     try {
-      const res = await chat({ message: t, conversation_id: conversationId });
-      const assistant: ChatMessage = {
-        id: uid(),
-        role: "assistant",
-        text: res.answer,
-        ts: Date.now(),
-        latencyMs: res.latency_ms,
-        data: (res.data ?? null) as any,
-      };
-      setMessages((m) => [...m, assistant]);
-      setActiveSessionId(conversationId);
+      const resp = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: t, conversation_id: conversationId }),
+      });
+      if (!resp.ok || !resp.body) {
+        const errText = await resp.text().catch(() => "");
+        throw new Error(`HTTP ${resp.status}: ${errText || resp.statusText}`);
+      }
 
-      // Refresh side data after each reply
-      void refreshMetricsAndLogs();
-      void refreshSessions();
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          let event: Record<string, unknown>;
+          try { event = JSON.parse(line.slice(6)); } catch { continue; }
+
+          if (event.type === "trace") {
+            // New tool call starting — add a "running" row
+            setLiveEvents((prev) => [
+              ...prev,
+              {
+                step: Number(event.step),
+                server: String(event.server ?? "MCP"),
+                tool: String(event.tool ?? ""),
+                label: String(event.label ?? ""),
+                status: "running" as const,
+              },
+            ]);
+          } else if (event.type === "step") {
+            // Tool call completed — update the matching "running" row in-place,
+            // or append a new row if no matching trace event arrived first.
+            setLiveEvents((prev) => {
+              const idx = prev.findIndex((e) => e.step === Number(event.step));
+              const updated: LiveEvent = {
+                step: Number(event.step),
+                server: String(event.server ?? "MCP"),
+                tool: String(event.tool ?? ""),
+                label: prev[idx]?.label ?? "",
+                status: event.success ? "ok" : "error",
+                duration_ms: typeof event.duration_ms === "number" ? event.duration_ms : undefined,
+                error: typeof event.error === "string" ? event.error : undefined,
+              };
+              if (idx >= 0) {
+                const copy = [...prev];
+                copy[idx] = updated;
+                return copy;
+              }
+              return [...prev, updated];
+            });
+          } else if (event.type === "done") {
+            const assistant: ChatMessage = {
+              id: uid(),
+              role: "assistant",
+              text: String(event.answer ?? ""),
+              ts: Date.now(),
+              latencyMs: typeof event.latency_ms === "number" ? event.latency_ms : undefined,
+              data: (event.data ?? null) as any,
+            };
+            setMessages((m) => [...m, assistant]);
+            setActiveSessionId(conversationId);
+            void refreshMetricsAndLogs();
+            void refreshSessions();
+            break outer;
+          } else if (event.type === "error") {
+            throw new Error(String(event.message ?? "Stream error"));
+          }
+        }
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setMessages((m) => [...m, { id: uid(), role: "assistant", text: `❌ ${msg}`, ts: Date.now() }]);
     } finally {
       setBusy(false);
+      setLiveEvents([]);
     }
   }
 
@@ -294,7 +369,7 @@ const refreshSessions = useCallback(async () => {
           {view === "assistant" ? (
             <div className={styles.assistantLayout}>
               <div className={styles.chatCol}>
-                <ChatWindow messages={messages} busy={busy} />
+                <ChatWindow messages={messages} busy={busy} liveEvents={liveEvents} />
                 <InputBox
                   value={input}
                   onChange={setInput}

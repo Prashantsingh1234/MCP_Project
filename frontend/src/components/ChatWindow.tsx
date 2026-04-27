@@ -2,20 +2,22 @@ import { useEffect, useMemo, useRef } from "react";
 import type { ChatMessage } from "./MessageBubble";
 import MessageBubble from "./MessageBubble";
 import styles from "./ChatWindow.module.css";
+import type { LiveEvent } from "../App";
 
 type Props = {
   messages: ChatMessage[];
   busy: boolean;
+  liveEvents?: LiveEvent[];
 };
 
-export default function ChatWindow({ messages, busy }: Props) {
+export default function ChatWindow({ messages, busy, liveEvents = [] }: Props) {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages, busy]);
+  }, [messages, busy, liveEvents.length]);
 
   const empty = useMemo(() => messages.length === 0, [messages.length]);
 
@@ -52,12 +54,53 @@ export default function ChatWindow({ messages, busy }: Props) {
 
         {busy ? (
           <div className={styles.typingRow}>
-            <div className={styles.typingBubble}>
-              <span className={styles.dot} />
-              <span className={styles.dot} />
-              <span className={styles.dot} />
-              <span className={styles.typingLabel}>Processing…</span>
-            </div>
+            {liveEvents.length === 0 ? (
+              /* No tool calls yet — show generic spinner */
+              <div className={styles.typingBubble}>
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+                <span className={styles.typingLabel}>Processing…</span>
+              </div>
+            ) : (
+              /* Live tool-call feed */
+              <div className={styles.liveBubble}>
+                <div className={styles.liveStepList}>
+                  {liveEvents.map((ev) => {
+                    const isRunning = ev.status === "running";
+                    const isOk      = ev.status === "ok";
+                    const rowCls    = `${styles.liveStep} ${
+                      isRunning ? styles.liveStepRunning
+                      : isOk    ? styles.liveStepOk
+                                : styles.liveStepFail
+                    }`;
+                    return (
+                      <div key={ev.step} className={rowCls}>
+                        <span className={styles.liveStepIcon}>
+                          {isRunning ? <span className={styles.spinner} /> : isOk ? "✔" : "✖"}
+                        </span>
+                        <span className={styles.liveServer}>{ev.server}</span>
+                        <span className={styles.liveArrow}>→</span>
+                        <span className={styles.liveTool}>{ev.tool}</span>
+                        {ev.label ? <span className={styles.liveLabel}>({ev.label})</span> : null}
+                        {!isRunning && ev.duration_ms != null
+                          ? <span className={styles.liveDuration}>{ev.duration_ms}ms</span>
+                          : null}
+                        {ev.status === "error" && ev.error
+                          ? <span className={styles.liveError}>{ev.error}</span>
+                          : null}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Show dots while still waiting for more steps */}
+                <div className={styles.livePending}>
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                  <span className={styles.dot} />
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
       </div>

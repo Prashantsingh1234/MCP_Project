@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discharge Prescription</title>
+    <style>
+      {{ css }}
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <div class="col">
+        <h1 class="h1">{{ hospital.hospital_name }}</h1>
+        <div class="muted">{{ hospital.address }}</div>
+        <div class="muted">{{ hospital.contact }}</div>
+      </div>
+      <div class="col" style="max-width: 320px">
+        <div class="metaBox">
+          <div class="h2" style="margin:0">DISCHARGE PRESCRIPTION</div>
+          <div class="labelGrid" style="margin-top:10px">
+            <div class="label">Rx No</div>
+            <div>{{ prescription.rx_id }}</div>
+            <div class="label">Date</div>
+            <div>{{ prescription.issued_date }}</div>
+            <div class="label">Time</div>
+            <div>{{ prescription.issued_time }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="metaBox">
+      <div class="h2">Patient Information (Non‑PHI)</div>
+      <div class="labelGrid">
+        <div class="label">Patient ID</div>
+        <div>{{ patient.patient_id }}</div>
+        <div class="label">Ward</div>
+        <div>{{ patient.ward }}</div>
+        <div class="label">Discharge Date</div>
+        <div>{{ patient.discharge_date }}</div>
+        <div class="label">Length of Stay</div>
+        <div>{{ patient.los_days }} day(s)</div>
+        <div class="label">ICD‑10 Codes</div>
+        <div>{{ patient.diagnosis_icd10 | join(", ") or "—" }}</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="h2">Prescribed Medications</div>
+    <table class="table">
+      <thead>
+        <tr>
+          <th style="width:4%">#</th>
+          <th style="width:28%">Drug</th>
+          <th class="num" style="width:12%">Dose</th>
+          <th style="width:16%">Frequency</th>
+          <th style="width:10%">Route</th>
+          <th class="num" style="width:8%">Days</th>
+          <th style="width:18%">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for med in medications %}
+        <tr class="
+          {% if med._status == 'SUBSTITUTED' %}row-warn
+          {% elif med._status in ['UNAVAILABLE', 'NOT_FOUND'] %}row-error
+          {% endif %}
+        ">
+          <td class="muted">{{ loop.index }}</td>
+          <td>
+            <strong>{{ med.drug_name or "—" }}</strong>
+            {% if med.brand and med.brand != med.drug_name %}
+            <div class="muted" style="font-size:11px">({{ med.brand }})</div>
+            {% endif %}
+            {% if med._original %}
+            <div class="muted altFor">alt. for {{ med._original }}</div>
+            {% endif %}
+          </td>
+          <td class="num">{{ med.dose or "—" }}</td>
+          <td>{{ med.frequency or "—" }}</td>
+          <td>{{ med.route or "Oral" }}</td>
+          <td class="num">{{ med.days_supply or "—" }}</td>
+          <td>
+            {% if med._status == 'AVAILABLE' %}
+            <span class="badge badge-ok">✔ Available</span>
+            {% elif med._status == 'SUBSTITUTED' %}
+            <span class="badge badge-warn">⚠ Substitute</span>
+            {% else %}
+            <span class="badge badge-error">❌ Unavailable</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% if med._safety_note %}
+        <tr class="safetyRow">
+          <td></td>
+          <td colspan="6" class="safetyCell">⚠ {{ med._safety_note }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if notes and notes.has_issues %}
+    <div class="noteBox">
+      <div class="noteTitle">Note</div>
+      <div>Some prescribed medicines were unavailable.</div>
+      {% if notes.substituted %}
+      <div style="margin-top:6px"><strong>Substitutions made:</strong></div>
+      {% for s in notes.substituted %}
+      <div class="noteItem">• {{ s.from }} → {{ s.to }}</div>
+      {% endfor %}
+      {% endif %}
+      {% if notes.out_of_stock %}
+      <div style="margin-top:6px"><strong>Unavailable (no alternative found):</strong></div>
+      {% for d in notes.out_of_stock %}
+      <div class="noteItem">• {{ d }}</div>
+      {% endfor %}
+      {% endif %}
+      <div class="safetyMsg">⚠ Please consult your doctor before taking alternative medicines.</div>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+      <div>This prescription is generated electronically at discharge.</div>
+      <div>Dispensed by: CityCare Hospital Pharmacy &bull; Valid for 30 days from issue date.</div>
+    </div>
+  </body>
+</html>

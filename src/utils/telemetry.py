@@ -104,7 +104,7 @@ class Telemetry:
         self._rbac_violations: list[dict] = []
         self._calls: list[MCPCall] = []
         self._chat_traces: list[ChatTrace] = []
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now()
         self._lock = threading.Lock()
         
         logger.info("Telemetry initialized")
@@ -133,13 +133,15 @@ class Telemetry:
                 "get_alerts",
                 "get_mcp_call_count",
                 "trace_workflow",
+                "record_chat_trace",
+                "get_chat_traces",
             }
             if str(tool) in ignore:
                 return
 
         with self._lock:
             call = MCPCall(
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now().isoformat(),
                 server=server,
                 tool=tool,
                 role=role,
@@ -167,7 +169,7 @@ class Telemetry:
         """
         with self._lock:
             alert = Alert(
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now().isoformat(),
                 level=level,
                 source=source,
                 message=message,
@@ -196,7 +198,7 @@ class Telemetry:
         """
         with self._lock:
             violation = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now().isoformat(),
                 "role": role,
                 "server": server,
                 "tool": tool,
@@ -234,7 +236,7 @@ class Telemetry:
         with self._lock:
             self._chat_traces.append(
                 ChatTrace(
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now().astimezone().isoformat(),
                     conversation_id=conversation_id,
                     role=role,
                     patient_id=patient_id,
@@ -303,7 +305,7 @@ class Telemetry:
             )
             
             return {
-                "uptime_seconds": (datetime.utcnow() - self._start_time).total_seconds(),
+                "uptime_seconds": (datetime.now() - self._start_time).total_seconds(),
                 "total_calls": total_calls,
                 "successful_calls": successful_calls,
                 "failed_calls": failed_calls,
@@ -335,7 +337,7 @@ class Telemetry:
             self._rbac_violations.clear()
             self._calls.clear()
             self._chat_traces.clear()
-            self._start_time = datetime.utcnow()
+            self._start_time = datetime.now()
             logger.info("Telemetry reset")
 
 
