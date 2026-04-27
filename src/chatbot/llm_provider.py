@@ -15,6 +15,11 @@ import os
 import re
 from typing import Any, Optional
 
+from src.utils.langsmith_tracing import (
+    traceable_safe,
+    process_inputs_llm_provider,
+    process_outputs_llm_provider,
+)
 
 _DEPLOYMENT_URL_RE = re.compile(r"^(https://[^/]+)(/openai/deployments/([^/]+).*)?$", re.IGNORECASE)
 
@@ -38,6 +43,12 @@ def is_configured() -> bool:
     )
 
 
+@traceable_safe(
+    name="llm_provider.chat_with_tools",
+    run_type="llm",
+    process_inputs=process_inputs_llm_provider,
+    process_outputs=process_outputs_llm_provider,
+)
 async def chat_with_tools(
     *,
     messages: list[dict[str, Any]],
@@ -111,6 +122,12 @@ async def chat_with_tools(
     return await asyncio.to_thread(_do_call)
 
 
+@traceable_safe(
+    name="llm_provider.chat_text",
+    run_type="llm",
+    process_inputs=process_inputs_llm_provider,
+    process_outputs=process_outputs_llm_provider,
+)
 async def chat_text(
     *,
     messages: list[dict[str, Any]],

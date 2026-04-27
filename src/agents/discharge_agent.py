@@ -88,17 +88,41 @@ class AsyncMCPToolClient:
             ) from exc
 
         self._session_cm = sse_client(self.sse_url)
-        read, write = await self._session_cm.__aenter__()  # type: ignore[attr-defined]
-        self._session = ClientSession(read, write)
-        await self._session.__aenter__()  # type: ignore[attr-defined]
-        await self._session.initialize()
-        return self
+        try:
+            read, write = await self._session_cm.__aenter__()  # type: ignore[attr-defined]
+            self._session = ClientSession(read, write)
+            await self._session.__aenter__()  # type: ignore[attr-defined]
+            await self._session.initialize()
+            return self
+        except Exception:
+            # Ensure partial enters are cleaned up to avoid leaked anyio cancel scopes.
+            try:
+                await self.__aexit__(None, None, None)
+            except Exception:
+                pass
+            raise
 
     async def __aexit__(self, exc_type, exc, tb):
-        if self._session is not None:
-            await self._session.__aexit__(exc_type, exc, tb)  # type: ignore[attr-defined]
-        if self._session_cm is not None:
-            await self._session_cm.__aexit__(exc_type, exc, tb)  # type: ignore[attr-defined]
+        try:
+            if self._session is not None:
+                try:
+                    await self._session.__aexit__(exc_type, exc, tb)  # type: ignore[attr-defined]
+                except RuntimeError as e:
+                    # anyio cancel-scope mismatch can occur when a request is cancelled by the client.
+                    # Do not crash the whole chat request on shutdown.
+                    if "Attempted to exit cancel scope in a different task" not in str(e):
+                        raise
+        finally:
+            self._session = None
+        try:
+            if self._session_cm is not None:
+                try:
+                    await self._session_cm.__aexit__(exc_type, exc, tb)  # type: ignore[attr-defined]
+                except RuntimeError as e:
+                    if "Attempted to exit cancel scope in a different task" not in str(e):
+                        raise
+        finally:
+            self._session_cm = None
 
     async def call_tool(self, tool: str, arguments: dict[str, Any]) -> Any:
         if self._session is None:

@@ -14,6 +14,11 @@ from src.chatbot.metrics import RequestMetrics
 from src.chatbot.rbac_guard import ActorContext, RBACGuard
 from src.utils.exceptions import MCPConnectionError, ToolExecutionError
 from src.utils.telemetry import get_telemetry
+from src.utils.langsmith_tracing import (
+    traceable_safe,
+    process_inputs_mcp_retry,
+    process_outputs_mcp_retry,
+)
 
 
 @dataclass(frozen=True)
@@ -67,19 +72,27 @@ class MCPClient:
             if self._stack is not None:
                 return
             stack = AsyncExitStack()
-            self._stack = stack
-            self._ehr = await stack.enter_async_context(AsyncMCPToolClient(self.urls.ehr))
-            self._pharmacy = await stack.enter_async_context(AsyncMCPToolClient(self.urls.pharmacy))
-            self._billing = await stack.enter_async_context(AsyncMCPToolClient(self.urls.billing))
-            # Security and Telemetry are optional: connect best-effort.
             try:
-                self._security = await stack.enter_async_context(AsyncMCPToolClient(self.urls.security))
-            except Exception:
+                self._stack = stack
+                self._ehr = await stack.enter_async_context(AsyncMCPToolClient(self.urls.ehr))
+                self._pharmacy = await stack.enter_async_context(AsyncMCPToolClient(self.urls.pharmacy))
+                self._billing = await stack.enter_async_context(AsyncMCPToolClient(self.urls.billing))
+                # Optional servers (security/telemetry) are connected lazily on demand.
                 self._security = None
-            try:
-                self._telemetry = await stack.enter_async_context(AsyncMCPToolClient(self.urls.telemetry))
-            except Exception:
                 self._telemetry = None
+            except Exception:
+                # If connection establishment fails mid-way, ensure we clean up any
+                # partially-entered async contexts to avoid leaked anyio cancel scopes.
+                try:
+                    await stack.aclose()
+                finally:
+                    self._stack = None
+                    self._ehr = None
+                    self._pharmacy = None
+                    self._billing = None
+                    self._security = None
+                    self._telemetry = None
+                raise
 
     async def aclose(self, *, exc_type=None, exc=None, tb=None) -> None:
         if self._stack is None:
@@ -92,6 +105,12 @@ class MCPClient:
         self._security = None
         self._telemetry = None
 
+    @traceable_safe(
+        name="MCPClient._retry",
+        run_type="tool",
+        process_inputs=process_inputs_mcp_retry,
+        process_outputs=process_outputs_mcp_retry,
+    )
     async def _retry(self, fn, tool: str, server: str, *, patient_id: Optional[str]):
         base_delay = 0.2
         last_exc: Optional[Exception] = None
@@ -190,6 +209,11 @@ class MCPClient:
         """
         self.rbac.ensure_allowed(self.actor, "security", tool, patient_id)
         await self._ensure_connected()
+        if self._security is None and self._stack is not None:
+            try:
+                self._security = await self._stack.enter_async_context(AsyncMCPToolClient(self.urls.security))
+            except Exception:
+                self._security = None
         if not self._security:
             # Fallback: call SecurityServer directly (in-process)
             from src.servers.security_server import get_security_server
@@ -211,6 +235,11 @@ class MCPClient:
         """
         self.rbac.ensure_allowed(self.actor, "telemetry", tool, patient_id)
         await self._ensure_connected()
+        if self._telemetry is None and self._stack is not None:
+            try:
+                self._telemetry = await self._stack.enter_async_context(AsyncMCPToolClient(self.urls.telemetry))
+            except Exception:
+                self._telemetry = None
         if not self._telemetry:
             from src.servers.telemetry_server import get_telemetry_server
             tel = get_telemetry_server()

@@ -24,12 +24,20 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+try:
+    from dotenv import load_dotenv  # type: ignore
+
+    load_dotenv(PROJECT_ROOT / ".env")
+except Exception:
+    pass
+
 from src.servers.ehr_server import get_ehr_server
 from src.servers.pharmacy_server import get_pharmacy_server
 from src.servers.billing_server import get_billing_server
 from src.servers.security_server import get_security_server
 from src.servers.telemetry_server import get_telemetry_server
 from src.utils.telemetry import MCPCallTimer, get_telemetry
+from src.utils.langsmith_tracing import instrument_fastmcp_tools
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +60,7 @@ def create_ehr_mcp():
     FastMCP = _require_fastmcp()
     ehr = get_ehr_server()
     mcp = FastMCP("EHR-Server")
+    instrument_fastmcp_tools(mcp, server="ehr")
 
     # ── Core Clinical ─────────────────────────────────────────────────────────
     @mcp.tool()
@@ -198,6 +207,7 @@ def create_pharmacy_mcp():
     FastMCP = _require_fastmcp()
     pharmacy = get_pharmacy_server()
     mcp = FastMCP("Pharmacy-Server")
+    instrument_fastmcp_tools(mcp, server="pharmacy")
 
     # ── Stock & Availability ──────────────────────────────────────────────────
     @mcp.tool()
@@ -348,6 +358,7 @@ def create_billing_mcp():
     FastMCP = _require_fastmcp()
     billing = get_billing_server()
     mcp = FastMCP("Billing-Server")
+    instrument_fastmcp_tools(mcp, server="billing")
 
     # ── Core Billing ──────────────────────────────────────────────────────────
     @mcp.tool()
@@ -447,6 +458,7 @@ def create_security_mcp():
     FastMCP = _require_fastmcp()
     security = get_security_server()
     mcp = FastMCP("Security-Server")
+    instrument_fastmcp_tools(mcp, server="security")
 
     @mcp.tool()
     def check_access(role: str, server: str, tool: str) -> dict[str, Any]:
@@ -483,6 +495,7 @@ def create_telemetry_mcp():
     FastMCP = _require_fastmcp()
     telem = get_telemetry_server()
     mcp = FastMCP("Telemetry-Server")
+    instrument_fastmcp_tools(mcp, server="telemetry")
 
     @mcp.tool()
     def get_mcp_call_count(patient_id: Optional[str] = None) -> dict[str, Any]:
@@ -579,6 +592,12 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     get_telemetry()
+    try:
+        from src.utils.langsmith_tracing import langsmith_status
+
+        logger.info("LangSmith tracing status: %s", langsmith_status())
+    except Exception:
+        pass
 
     if args.all:
         run_all()

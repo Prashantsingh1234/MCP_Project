@@ -13,6 +13,7 @@ jsonschema>=4.20.0
 # LLM Integration
 langchain>=0.2.0
 langchain-openai>=0.1.0
+langsmith>=0.7.0
 
 # Azure
 azure-ai-projects>=1.0.0b1

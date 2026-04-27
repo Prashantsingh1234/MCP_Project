@@ -40,6 +40,11 @@ from src.chatbot.validator import (
 )
 from src.chatbot.workflow_engine import WorkflowEngine
 from src.utils.exceptions import RBACError, ToolExecutionError, MCPConnectionError
+from src.utils.langsmith_tracing import (
+    traceable_safe,
+    process_inputs_controller,
+    process_outputs_controller,
+)
 
 
 @dataclass
@@ -57,6 +62,12 @@ class LLMChatController:
 
         self.default_role = os.getenv("CHATBOT_DEFAULT_ROLE", "discharge_coordinator")
 
+    @traceable_safe(
+        name="LLMChatController._fallback",
+        run_type="chain",
+        process_inputs=process_inputs_controller,
+        process_outputs=process_outputs_controller,
+    )
     async def _fallback(self, *, user_text: str, state, client: MCPClient) -> ControllerResponse:
         """Deterministic fallback for core workflows when the LLM times out.
 
@@ -758,6 +769,12 @@ class LLMChatController:
 
         return ControllerResponse(success=False, answer="Request timed out. Please try again with a patient ID (PAT-XXX) or a specific drug name.")
 
+    @traceable_safe(
+        name="LLMChatController.handle_message",
+        run_type="chain",
+        process_inputs=process_inputs_controller,
+        process_outputs=process_outputs_controller,
+    )
     async def handle_message(self, user_text: str, *, conversation_id: Optional[str] = None) -> ControllerResponse:
         if not user_text or not user_text.strip():
             return ControllerResponse(success=False, answer="Please provide a valid message.")

@@ -5,9 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 from src.chatbot.mcp_client import MCPClient
+from src.utils.langsmith_tracing import traceable_safe, process_inputs_workflow, process_outputs_workflow
 
 
 class WorkflowEngine:
+    @traceable_safe(
+        name="WorkflowEngine.discharge",
+        run_type="chain",
+        process_inputs=process_inputs_workflow,
+        process_outputs=process_outputs_workflow,
+    )
     async def discharge(self, client: MCPClient, patient_id: str, *, include_invoice: bool) -> dict[str, Any]:
         alerts: list[dict[str, Any]] = []
         substitutions: list[dict[str, Any]] = []
@@ -174,9 +181,21 @@ class WorkflowEngine:
             "billing_safe_summary": billing_safe,
         }
 
+    @traceable_safe(
+        name="WorkflowEngine.get_medications",
+        run_type="chain",
+        process_inputs=process_inputs_workflow,
+        process_outputs=process_outputs_workflow,
+    )
     async def get_medications(self, client: MCPClient, patient_id: str) -> list[dict[str, Any]]:
         return await client.ehr_call("get_discharge_medications", {"patient_id": patient_id}, patient_id=patient_id)
 
+    @traceable_safe(
+        name="WorkflowEngine.check_stock_for_list",
+        run_type="chain",
+        process_inputs=process_inputs_workflow,
+        process_outputs=process_outputs_workflow,
+    )
     async def check_stock_for_list(self, client: MCPClient, patient_id: str, meds: list[dict[str, Any]]) -> dict[str, Any]:
         available: list[dict[str, Any]] = []
         unavailable: list[dict[str, Any]] = []
@@ -242,5 +261,11 @@ class WorkflowEngine:
             "name_mismatches": name_mismatches,
         }
 
+    @traceable_safe(
+        name="WorkflowEngine.discharge_with_invoice",
+        run_type="chain",
+        process_inputs=process_inputs_workflow,
+        process_outputs=process_outputs_workflow,
+    )
     async def discharge_with_invoice(self, client: MCPClient, patient_id: str) -> dict[str, Any]:
         return await self.discharge(client, patient_id, include_invoice=True)

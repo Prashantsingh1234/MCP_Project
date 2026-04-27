@@ -19,6 +19,7 @@ from src.chatbot.mcp_client import MCPClient
 from src.chatbot.phi_guard import PHI_FIELDS, contains_phi_keys, strip_phi
 from src.chatbot.workflow_engine import WorkflowEngine
 from src.utils.exceptions import RBACError, ToolExecutionError, MCPConnectionError
+from src.utils.langsmith_tracing import traceable_safe, process_inputs_controller, process_outputs_controller
 
 
 ALLOWED_BILLING_SAFE_KEYS = {
@@ -464,6 +465,12 @@ class LLMToolCallingAgent:
                 ["answer"]),
         ]
 
+    @traceable_safe(
+        name="LLMToolCallingAgent.run",
+        run_type="chain",
+        process_inputs=process_inputs_controller,
+        process_outputs=process_outputs_controller,
+    )
     async def run(
         self,
         *,
@@ -490,9 +497,16 @@ class LLMToolCallingAgent:
         # Tracks whether an invoice was generated during THIS run so we can
         # include it in the respond() data for the gateway's PDF link injection.
         _invoice_generated: list[bool] = [False]
+        _seen_patient_ids: set[str] = set()
 
         async def exec_tool(name: str, args: dict[str, Any]) -> dict[str, Any]:
             args = args or {}
+            try:
+                pid_hint = str(args.get("patient_id", "")).strip().upper()
+                if pid_hint.startswith("PAT-"):
+                    _seen_patient_ids.add(pid_hint)
+            except Exception:
+                pass
 
             # ── Workflow shortcut ─────────────────────────────────────────────
             if name == "discharge_with_invoice":
@@ -550,6 +564,13 @@ class LLMToolCallingAgent:
             if name == "list_patients":
                 result = await client.ehr_call(name, {}, patient_id=None)
                 if isinstance(result, list):
+                    try:
+                        for x in result:
+                            pid2 = str(x or "").strip().upper()
+                            if pid2.startswith("PAT-"):
+                                _seen_patient_ids.add(pid2)
+                    except Exception:
+                        pass
                     return {"patient_ids": [str(x) for x in result]}
                 if isinstance(result, dict):
                     return result
@@ -914,10 +935,17 @@ class LLMToolCallingAgent:
                         answer = "Request denied.\n\nSensitive patient information (PHI) cannot be included."
                         data = None
                     else:
-                        # If an invoice was generated during this run, inject it into the
-                        # response data so the gateway can attach PDF/HTML download links.
-                        if _invoice_generated[0] and state.last_invoice and not (data or {}).get("invoice"):
-                            data = {**(data or {}), "invoice": dict(state.last_invoice)}
+                        # Multi-patient runs: include patient list so the gateway can attach
+                        # per-patient invoice PDF/preview links. Do NOT inject a single invoice.
+                        if len(_seen_patient_ids) > 1:
+                            data = {**(data or {})}
+                            if not isinstance(data.get("patients"), list):
+                                data["patients"] = sorted(_seen_patient_ids)
+                        else:
+                            # Single-patient: if an invoice was generated during this run, inject it into the
+                            # response data so the gateway can attach PDF/HTML download links.
+                            if _invoice_generated[0] and state.last_invoice and not (data or {}).get("invoice"):
+                                data = {**(data or {}), "invoice": dict(state.last_invoice)}
                     return AgentResult(answer=answer, data=data)
 
                 try:

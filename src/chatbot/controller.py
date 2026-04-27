@@ -31,6 +31,11 @@ from src.utils.telemetry import get_telemetry
 from src.utils.exceptions import RBACError
 from src.utils.exceptions import ToolExecutionError, MCPConnectionError
 from src.utils.data_loader import get_data_loader
+from src.utils.langsmith_tracing import (
+    traceable_safe,
+    process_inputs_controller,
+    process_outputs_controller,
+)
 
 
 @dataclass
@@ -55,6 +60,12 @@ class ChatController:
             return ActorContext(role=requested_role)
         return ActorContext(role=self.default_role)
 
+    @traceable_safe(
+        name="ChatController.handle_message",
+        run_type="chain",
+        process_inputs=process_inputs_controller,
+        process_outputs=process_outputs_controller,
+    )
     async def handle_message(
         self,
         user_text: str,

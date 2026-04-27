@@ -15,8 +15,27 @@ import time
 import logging
 import socket
 import re
+from pathlib import Path
 from collections import OrderedDict
 from typing import Any, Optional
+import sys
+
+if sys.platform.startswith("win"):
+    # ProactorEventLoop is required on Windows for anyio + MCP SDK SSE transport.
+    # WindowsSelectorEventLoopPolicy causes "Attempted to exit cancel scope in a
+    # different task than it was entered in" when anyio and MCP SDK are used together.
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+try:
+    from dotenv import load_dotenv  # type: ignore
+
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    load_dotenv(PROJECT_ROOT / ".env")
+except Exception:
+    pass
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,10 +50,6 @@ from src.gateway.llm_azure import is_configured as azure_configured
 from src.utils.telemetry import get_telemetry
 from src.agents.discharge_agent import AsyncMCPToolClient
 from src.gateway.invoice_pdf import InvoiceLineItem, build_invoice_data, generate_invoice_pdf, render_invoice_html
-
-from dotenv import load_dotenv
-
-load_dotenv()
 
 logger = logging.getLogger("MCPDischargeChatGateway")
 
@@ -276,6 +291,12 @@ async def _fetch_remote_telemetry_summary() -> Optional[dict[str, Any]]:
         return None
 
 
+def _sync_fetch_remote_telemetry_summary() -> Optional[dict[str, Any]]:
+    # Run in a dedicated thread+event-loop so anyio cancel scopes never cross
+    # FastAPI request cancellation boundaries.
+    return asyncio.run(_fetch_remote_telemetry_summary())
+
+
 async def _fetch_remote_telemetry_logs(limit: int) -> Optional[dict[str, Any]]:
     try:
         async with AsyncMCPToolClient("http://localhost:8005/sse") as c:
@@ -284,9 +305,13 @@ async def _fetch_remote_telemetry_logs(limit: int) -> Optional[dict[str, Any]]:
         return None
 
 
+def _sync_fetch_remote_telemetry_logs(limit: int) -> Optional[dict[str, Any]]:
+    return asyncio.run(_fetch_remote_telemetry_logs(limit))
+
+
 @app.get("/api/metrics")
 async def metrics():
-    remote = await _fetch_remote_telemetry_summary()
+    remote = await asyncio.to_thread(_sync_fetch_remote_telemetry_summary)
     if isinstance(remote, dict) and remote:
         return remote
     return get_telemetry().get_summary()
@@ -296,7 +321,7 @@ async def metrics():
 async def logs(limit: int = 100):
     limit = int(limit or 100)
     # Tool-call logs should come from the telemetry server (single source of truth across servers).
-    remote = await _fetch_remote_telemetry_logs(limit)
+    remote = await asyncio.to_thread(_sync_fetch_remote_telemetry_logs, limit)
 
     # Chat traces are recorded in the gateway process only.
     local_telem = get_telemetry()
@@ -439,6 +464,12 @@ async def chat(req: ChatRequest):
     role = (req.role or "").strip() or None
 
     try:
+        # Call the controller directly inside uvicorn's anyio event loop.
+        # asyncio.to_thread() was previously used here but it copies the parent
+        # task's contextvars (including uvicorn's anyio cancel-scope state) into
+        # the worker thread, where anyio.run() would create a new task that
+        # inherits the stale context — causing the cancel-scope task-mismatch
+        # error.  Running directly in the same anyio task avoids that entirely.
         ctrl = await CONTROLLER.handle_message(message, conversation_id=conversation_id)
 
         latency_ms = (time.perf_counter() - start) * 1000
