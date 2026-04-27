@@ -50,6 +50,7 @@ from src.gateway.llm_azure import is_configured as azure_configured
 from src.utils.telemetry import get_telemetry
 from src.agents.discharge_agent import AsyncMCPToolClient
 from src.gateway.invoice_pdf import InvoiceLineItem, build_invoice_data, generate_invoice_pdf, render_invoice_html
+from src.utils.langsmith_tracing import langsmith_status
 
 logger = logging.getLogger("MCPDischargeChatGateway")
 
@@ -280,6 +281,7 @@ def status():
         "pharmacy": {"connected": _tcp_ok("127.0.0.1", 8002)},
         "billing": {"connected": _tcp_ok("127.0.0.1", 8003)},
         "azure_openai_configured": azure_configured(),
+        "langsmith": langsmith_status(),
     }
 
 

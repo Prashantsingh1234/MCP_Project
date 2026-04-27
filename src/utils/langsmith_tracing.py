@@ -13,9 +13,11 @@ from __future__ import annotations
 import asyncio
 import functools
 import os
+import re
 from typing import Any, Callable, Optional
 
 from src.chatbot.phi_guard import contains_phi_keys
+from src.chatbot.validator import extract_patient_ids
 
 
 def _is_truthy_env(name: str) -> bool:
@@ -116,6 +118,77 @@ def _sanitize_output(output: Any) -> Any:
         return {"summary": _summary(output), "contains_phi_keys": None}
 
 
+_KEEP_WORDS = {
+    # Common workflow words (non-PHI)
+    "discharge",
+    "patient",
+    "patients",
+    "medicine",
+    "medicines",
+    "medication",
+    "medications",
+    "invoice",
+    "bill",
+    "report",
+    "summary",
+    "stock",
+    "availability",
+    "available",
+    "unavailable",
+    "generate",
+    "check",
+    "for",
+    "all",
+    "of",
+    "and",
+    "the",
+    "a",
+    "an",
+    "to",
+    "in",
+    "on",
+    "with",
+}
+
+
+def _mask_text(text: str, *, max_len: int = 600) -> str:
+    """Mask potentially sensitive text while preserving intent/debug signal.
+
+    - Preserves patient IDs like PAT-001
+    - Preserves a small set of common workflow words
+    - Preserves numbers and punctuation
+    - Masks other word tokens as ███
+    """
+    if not text:
+        return ""
+    t = str(text)
+    if len(t) > max_len:
+        t = t[:max_len] + "…"
+
+    parts: list[str] = []
+    for tok in re.findall(r"[A-Za-z0-9-]+|[^A-Za-z0-9-]+", t):
+        if not tok or not tok.strip():
+            parts.append(tok)
+            continue
+        upper = tok.upper()
+        lower = tok.lower()
+        if re.fullmatch(r"PAT-\d{3}", upper):
+            parts.append(upper)
+            continue
+        if tok.isdigit():
+            parts.append(tok)
+            continue
+        if lower in _KEEP_WORDS:
+            parts.append(tok)
+            continue
+        # Mask anything else (including names, MRNs, free text)
+        if re.fullmatch(r"[A-Za-z0-9-]+", tok):
+            parts.append("███")
+        else:
+            parts.append(tok)
+    return "".join(parts)
+
+
 def traceable_safe(
     *,
     name: str,
@@ -194,15 +267,40 @@ def traceable_safe(
 
 
 def process_inputs_controller(inputs: dict[str, Any]) -> dict[str, Any]:
-    return _sanitize_inputs(
+    user_text = str(inputs.get("user_text") or "")
+    try:
+        patient_ids = extract_patient_ids(user_text)
+    except Exception:
+        patient_ids = []
+
+    out = _sanitize_inputs(
         inputs,
-        drop_keys={"user_text", "messages", "chat_history"},
+        drop_keys={"messages", "chat_history"},
         include_keys=None,
     )
+    # Provide a masked preview so LangSmith runs show what was asked without leaking PHI.
+    out["user_text_masked"] = _mask_text(user_text)
+    out["patient_ids"] = patient_ids
+    out["user_text_len"] = len(user_text)
+    return out
 
 
 def process_outputs_controller(output: Any) -> Any:
-    return _sanitize_output(output)
+    base = _sanitize_output(output)
+    try:
+        answer = getattr(output, "answer", None)
+        success = getattr(output, "success", None)
+        data = getattr(output, "data", None)
+        if answer is not None:
+            base["answer_masked"] = _mask_text(str(answer))
+            base["answer_len"] = len(str(answer))
+        if success is not None:
+            base["success"] = bool(success)
+        if isinstance(data, dict):
+            base["data_keys"] = [str(k) for k in list(data.keys())[:60]]
+    except Exception:
+        pass
+    return base
 
 
 def process_inputs_llm_provider(inputs: dict[str, Any]) -> dict[str, Any]:
