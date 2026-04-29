@@ -591,9 +591,19 @@ class LLMToolCallingAgent:
             # ── Workflow shortcut ─────────────────────────────────────────────
             if name == "discharge_with_invoice":
                 patient_id = str(args.get("patient_id", "")).strip().upper()
+
+                def _workflow_on_step(entry: dict) -> None:
+                    _mcp_trace.append(entry)
+                    if on_step is not None:
+                        try:
+                            on_step(entry)
+                        except Exception:
+                            pass
+
                 result = await self._workflow.discharge_with_invoice(
                     client, patient_id,
                     on_trace=on_trace,
+                    on_step=_workflow_on_step,
                     step_counter=_trace_seq,
                 )
                 safe = strip_phi(result)
@@ -1061,7 +1071,9 @@ class LLMToolCallingAgent:
                     result = await exec_tool(tool_name_norm, call_args)
                     _duration = round((_time.perf_counter() - _t0) * 1000, 1)
                     executed_tools += 1
-                    if tool_name_norm != "respond":
+                    # discharge_with_invoice sub-steps are already appended to _mcp_trace
+                    # by _workflow_on_step; skip adding a single wrapper entry here.
+                    if tool_name_norm != "respond" and tool_name_norm != "discharge_with_invoice":
                         _step_entry = {
                             "step": current_step,
                             "server": _TOOL_SERVER_MAP.get(tool_name_norm, "MCP"),

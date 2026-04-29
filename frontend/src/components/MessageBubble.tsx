@@ -362,22 +362,25 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
           </div>
         )}
 
-        {/* MCP execution trace */}
+        {/* Tool execution trace */}
         {isAssistant && mcpTrace && mcpTrace.length > 0 && (
           <div className={styles.tracePanel}>
             <div className={styles.traceTitle}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
               </svg>
-              MCP Execution Trace ({mcpTrace.length} steps)
+              Tool Execution Trace:
             </div>
-            {mcpTrace.map((step) => (
+            {mcpTrace.map((step, index) => (
               <div key={step.step} className={`${styles.traceStep} ${step.success ? styles.traceOk : styles.traceFail}`}>
-                <span className={styles.traceIcon}>{step.success ? "✔" : "✖"}</span>
+                <span className={styles.traceStepNum}>{index + 1}.</span>
                 <span className={styles.traceServer}>{step.server}</span>
                 <span className={styles.traceArrow}>→</span>
                 <span className={styles.traceTool}>{step.tool}</span>
-                <span className={styles.traceDuration}>{step.duration_ms}ms</span>
+                <span className={styles.traceIcon}>{step.success ? "✔" : "✖"}</span>
+                {typeof step.duration_ms === "number" && step.duration_ms > 0 && (
+                  <span className={styles.traceDuration}>{step.duration_ms}ms</span>
+                )}
                 {step.error && <span className={styles.traceError}>{step.error}</span>}
               </div>
             ))}

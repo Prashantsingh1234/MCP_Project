@@ -421,6 +421,20 @@ async def metrics():
     return local
 
 
+def _sort_desc(rows: list) -> list:
+    """Return rows sorted by ISO timestamp DESC (latest first). Never mutates the input."""
+    try:
+        return sorted(
+            rows,
+            key=lambda x: (
+                x.get("timestamp", "") if isinstance(x, dict) else getattr(x, "timestamp", "")
+            ),
+            reverse=True,
+        )
+    except Exception:
+        return list(rows)
+
+
 @app.get("/api/logs")
 async def logs(limit: int = 100):
     limit = int(limit or 100)
@@ -433,22 +447,23 @@ async def logs(limit: int = 100):
     local_chat_rows = [c.__dict__ for c in local_telem.get_chat_traces(limit=limit)]
 
     if isinstance(remote, dict) and remote.get("summary") is not None:
+        chat_rows = remote.get("chat") if isinstance(remote.get("chat"), list) else local_chat_rows
         return {
-             "summary": remote.get("summary"),
-            "chat": remote.get("chat") if isinstance(remote.get("chat"), list) else local_chat_rows,
-            "calls": remote.get("calls") or [],
-            "rbac_violations": remote.get("rbac_violations") or [],
-            "alerts": remote.get("alerts") or [],
+            "summary": remote.get("summary"),
+            "chat": _sort_desc(chat_rows),
+            "calls": _sort_desc(remote.get("calls") or []),
+            "rbac_violations": _sort_desc(remote.get("rbac_violations") or []),
+            "alerts": _sort_desc(remote.get("alerts") or []),
         }
 
     # Fallback to local-only telemetry if telemetry server is unavailable.
     calls = local_telem.get_calls(limit=limit)
     return {
         "summary": local_telem.get_summary(),
-        "chat": local_chat_rows,
-        "calls": [c.__dict__ for c in calls],
-        "rbac_violations": local_telem.get_rbac_violations()[-limit:],
-        "alerts": [a.__dict__ for a in local_telem.get_alerts()][-limit:],
+        "chat": _sort_desc(local_chat_rows),
+        "calls": _sort_desc([c.__dict__ for c in calls]),
+        "rbac_violations": _sort_desc(local_telem.get_rbac_violations()[-limit:]),
+        "alerts": _sort_desc([a.__dict__ for a in local_telem.get_alerts()][-limit:]),
     }
 
 

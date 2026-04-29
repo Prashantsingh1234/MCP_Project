@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time as _time
 from typing import Any
 
 from src.chatbot.mcp_client import MCPClient
@@ -22,23 +23,36 @@ class WorkflowEngine:
         *,
         include_invoice: bool,
         on_trace: Any = None,
+        on_step: Any = None,
         step_counter: list[int] | None = None,
     ) -> dict[str, Any]:
         _counter = step_counter if step_counter is not None else [0]
 
-        def _trace(server: str, tool: str, label: str = "") -> None:
-            if on_trace is None:
-                return
+        def _trace(server: str, tool: str, label: str = "") -> int:
             _counter[0] += 1
+            _cur = _counter[0]
+            if on_trace is not None:
+                try:
+                    on_trace({
+                        "type": "trace",
+                        "step": _cur,
+                        "server": server,
+                        "tool": tool,
+                        "label": label,
+                        "message": f"Calling {server} → {tool}" + (f" ({label})" if label else ""),
+                    })
+                except Exception:
+                    pass
+            return _cur
+
+        def _step_done(step: int, server: str, tool: str, dur: float, ok: bool, err: str | None = None) -> None:
+            if on_step is None:
+                return
+            entry: dict[str, Any] = {"step": step, "server": server, "tool": tool, "duration_ms": dur, "success": ok}
+            if err:
+                entry["error"] = err
             try:
-                on_trace({
-                    "type": "trace",
-                    "step": _counter[0],
-                    "server": server,
-                    "tool": tool,
-                    "label": label,
-                    "message": f"Calling {server} → {tool}" + (f" ({label})" if label else ""),
-                })
+                on_step(entry)
             except Exception:
                 pass
 
@@ -46,8 +60,10 @@ class WorkflowEngine:
         substitutions: list[dict[str, Any]] = []
         conflicts: list[dict[str, Any]] = []
 
-        _trace("EHR", "get_discharge_medications", patient_id)
+        _cur = _trace("EHR", "get_discharge_medications", patient_id)
+        _t0 = _time.perf_counter()
         meds = await client.ehr_call("get_discharge_medications", {"patient_id": patient_id}, patient_id=patient_id)
+        _step_done(_cur, "EHR", "get_discharge_medications", round((_time.perf_counter() - _t0) * 1000, 1), True)
 
         # Build a stock-check style summary for downstream formatting without re-calling tools.
         available: list[dict[str, Any]] = []
@@ -61,10 +77,12 @@ class WorkflowEngine:
             drug_query = med.get("brand") or med.get("drug_name")
             dose = med.get("dose")
 
-            _trace("Pharmacy", "check_stock", str(drug_query or ""))
+            _cur = _trace("Pharmacy", "check_stock", str(drug_query or ""))
+            _t0 = _time.perf_counter()
             stock = await client.pharmacy_call(
                 "check_stock", {"drug_name": drug_query, "quantity": 1, "dose": dose}, patient_id=patient_id
             )
+            _step_done(_cur, "Pharmacy", "check_stock", round((_time.perf_counter() - _t0) * 1000, 1), True)
 
             if not stock.get("found", True):
                 alerts.append(
@@ -100,8 +118,10 @@ class WorkflowEngine:
 
             alternative = None
             if not stock.get("available"):
-                _trace("Pharmacy", "get_alternative", str(drug_query or ""))
+                _cur = _trace("Pharmacy", "get_alternative", str(drug_query or ""))
+                _t0 = _time.perf_counter()
                 alternative = await client.pharmacy_call("get_alternative", {"drug_name": drug_query}, patient_id=patient_id)
+                _step_done(_cur, "Pharmacy", "get_alternative", round((_time.perf_counter() - _t0) * 1000, 1), True)
                 alternatives = (alternative or {}).get("alternatives", [])
                 if alternatives:
                     chosen = alternatives[0]
@@ -145,8 +165,10 @@ class WorkflowEngine:
 
             pharmacy_results.append({"med": med, "stock": stock, "alternative": alternative})
 
-        _trace("EHR", "get_billing_safe_summary", patient_id)
+        _cur = _trace("EHR", "get_billing_safe_summary", patient_id)
+        _t0 = _time.perf_counter()
         billing_safe = await client.ehr_call("get_billing_safe_summary", {"patient_id": patient_id}, patient_id=patient_id)
+        _step_done(_cur, "EHR", "get_billing_safe_summary", round((_time.perf_counter() - _t0) * 1000, 1), True)
 
         invoice: dict[str, Any] | None = None
         if include_invoice:
@@ -167,11 +189,13 @@ class WorkflowEngine:
                     if alternatives:
                         drug_name = alternatives[0].get("generic_name") or drug_name
 
+                _cur = _trace("Pharmacy", "get_price", str(drug_name or ""))
+                _t0 = _time.perf_counter()
                 try:
-                    _trace("Pharmacy", "get_price", str(drug_name or ""))
                     price = await client.pharmacy_call(
                         "get_price", {"drug_name": drug_name, "quantity": qty}, patient_id=patient_id
                     )
+                    _step_done(_cur, "Pharmacy", "get_price", round((_time.perf_counter() - _t0) * 1000, 1), True)
                     drug_charges.append(
                         {
                             "total_price_inr": price.get("total_price_inr", 0),
@@ -179,6 +203,7 @@ class WorkflowEngine:
                         }
                     )
                 except Exception:
+                    _step_done(_cur, "Pharmacy", "get_price", round((_time.perf_counter() - _t0) * 1000, 1), False, "price_lookup_failed")
                     drug_charges.append({"total_price_inr": 0, "dispensing_fee": 0})
                     alerts.append(
                         {
@@ -189,12 +214,14 @@ class WorkflowEngine:
                         }
                     )
 
-            _trace("Billing", "generate_invoice", patient_id)
+            _cur = _trace("Billing", "generate_invoice", patient_id)
+            _t0 = _time.perf_counter()
             invoice = await client.billing_call(
                 "generate_invoice",
                 {"patient_id": patient_id, "billing_safe_ehr": billing_safe, "drug_charges": drug_charges},
                 patient_id=patient_id,
             )
+            _step_done(_cur, "Billing", "generate_invoice", round((_time.perf_counter() - _t0) * 1000, 1), True)
 
         return {
             "patient_id": patient_id,
@@ -305,11 +332,13 @@ class WorkflowEngine:
         patient_id: str,
         *,
         on_trace: Any = None,
+        on_step: Any = None,
         step_counter: list[int] | None = None,
     ) -> dict[str, Any]:
         return await self.discharge(
             client, patient_id,
             include_invoice=True,
             on_trace=on_trace,
+            on_step=on_step,
             step_counter=step_counter,
         )

@@ -55,8 +55,20 @@ function levelClass(level: string) {
   return styles.ok;
 }
 
+function sortDesc<T extends { timestamp: string }>(rows: T[]): T[] {
+  return [...rows].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+}
+
 export default function LogsPanel({ summary = null, chatTraces = [], calls, alerts = [] }: Props) {
   const [tab, setTab] = useState<Tab>("chat");
+
+  // Sort DESC (latest first) — backend sorts too; this is a safety fallback.
+  const sortedChatTraces = sortDesc(chatTraces);
+  const sortedCalls = sortDesc(calls);
+  const sortedAlerts = sortDesc(alerts);
+
   const failedCalls = calls.filter((c) => !c.success);
   const failedChats = chatTraces.filter((c) => !c.success);
 
@@ -119,14 +131,14 @@ export default function LogsPanel({ summary = null, chatTraces = [], calls, aler
               </tr>
             </thead>
             <tbody>
-              {chatTraces.length === 0 ? (
+              {sortedChatTraces.length === 0 ? (
                 <tr>
                   <td colSpan={8} className={styles.empty}>
                     No chat requests yet.
                   </td>
                 </tr>
               ) : null}
-              {chatTraces.map((c, idx) => (
+              {sortedChatTraces.map((c, idx) => (
                 <tr key={`${c.timestamp}-${idx}`} className={!c.success ? styles.rowFail : undefined}>
                   <td className={styles.mono}>{(c.timestamp || "").slice(11, 19)}</td>
                   <td>
@@ -170,14 +182,14 @@ export default function LogsPanel({ summary = null, chatTraces = [], calls, aler
               </tr>
             </thead>
             <tbody>
-              {calls.length === 0 ? (
+              {sortedCalls.length === 0 ? (
                 <tr>
                   <td colSpan={8} className={styles.empty}>
                     No tool calls yet. Run a chat query first.
                   </td>
                 </tr>
               ) : null}
-              {calls.map((c, idx) => (
+              {sortedCalls.map((c, idx) => (
                 <tr key={`${c.timestamp}-${idx}`} className={!c.success ? styles.rowFail : undefined}>
                   <td className={styles.mono}>{c.timestamp.slice(11, 19)}</td>
                   <td className={styles.cap}>{c.server}</td>
@@ -210,14 +222,14 @@ export default function LogsPanel({ summary = null, chatTraces = [], calls, aler
               </tr>
             </thead>
             <tbody>
-              {alerts.length === 0 ? (
+              {sortedAlerts.length === 0 ? (
                 <tr>
                   <td colSpan={4} className={styles.empty}>
                     No alerts recorded.
                   </td>
                 </tr>
               ) : null}
-              {alerts.map((a, idx) => (
+              {sortedAlerts.map((a, idx) => (
                 <tr key={`alert-${a.timestamp}-${idx}`}>
                   <td className={styles.mono}>{(a.timestamp || "").slice(11, 19)}</td>
                   <td>

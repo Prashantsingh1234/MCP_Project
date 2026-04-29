@@ -46,11 +46,11 @@ export default function Header({ title, status, userName, onOpenMobileNav }: Pro
       <div className={styles.center}>
         {status ? (
           <div className={styles.statusRow}>
-            <Pill label="EHR" ok={status.ehr.connected} />
-            <Pill label="Pharmacy" ok={status.pharmacy.connected} />
-            <Pill label="Billing" ok={status.billing.connected} />
-            <Pill label="Security" ok={status.security?.connected ?? false} />
-            <Pill label="Telemetry" ok={status.telemetry?.connected ?? false} />
+            <Pill label="EHR MCP" ok={status.ehr.connected} />
+            <Pill label="Pharmacy MCP" ok={status.pharmacy.connected} />
+            <Pill label="Billing MCP" ok={status.billing.connected} />
+            <Pill label="Security MCP" ok={status.security?.connected ?? false} />
+            <Pill label="Telemetry MCP" ok={status.telemetry?.connected ?? false} />
           </div>
         ) : (
           <div className={styles.statusLoading}>Checking system status…</div>

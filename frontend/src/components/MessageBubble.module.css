@@ -446,7 +446,15 @@
 .traceOk  { background: rgba(22, 163, 74, 0.06); }
 .traceFail { background: rgba(220, 38, 38, 0.06); }
 
-.traceIcon  { font-size: 10px; min-width: 12px; }
+.traceStepNum {
+  color: var(--muted-2);
+  font-size: 10px;
+  min-width: 18px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.traceIcon  { font-size: 10px; min-width: 12px; flex-shrink: 0; }
 .traceOk .traceIcon  { color: #16a34a; }
 .traceFail .traceIcon { color: #dc2626; }
 
